@@ -12,7 +12,7 @@
  */
 Object Object_NewCube(Vector3 center, Color color, float size) {
     Object obj;
-    obj.type = LIGHT_TYPE_CUBE;
+    obj.type = OBJECT_TYPE_CUBE;
     obj.position = center;
     obj.color = color;
     obj.data.cubeData.size = size;
@@ -28,7 +28,7 @@ Object Object_NewCube(Vector3 center, Color color, float size) {
  */
 Object Object_NewSphere(Vector3 center, Color color, float radius) {
     Object obj;
-    obj.type = LIGHT_TYPE_SPHERE;
+    obj.type = OBJECT_TYPE_SPHERE;
     obj.position = center;
     obj.color = color;
     obj.data.sphereData.radius = radius;
@@ -46,7 +46,7 @@ Object Object_NewSphere(Vector3 center, Color color, float radius) {
  */
 Object Object_NewCuboid(Vector3 center, Color color, float width, float height, float length) {
     Object obj;
-    obj.type = LIGHT_TYPE_CUBOID;
+    obj.type = OBJECT_TYPE_CUBOID;
     obj.position = center;
     obj.color = color;
     obj.data.cuboidData.width = width;
@@ -97,13 +97,13 @@ void Object_Print(const char* label, Object obj) {
     printf("  Color: (R:%d, G:%d, B:%d, A:%d)\n", obj.color.r, obj.color.g, obj.color.b, obj.color.a);
 
     switch (obj.type) {
-        case LIGHT_TYPE_CUBE:
+        case OBJECT_TYPE_CUBE:
             Object_PrintCubeData(obj.data.cubeData);
             break;
-        case LIGHT_TYPE_SPHERE:
+        case OBJECT_TYPE_SPHERE:
             Object_PrintSphereData(obj.data.sphereData);
             break;
-        case LIGHT_TYPE_CUBOID:
+        case OBJECT_TYPE_CUBOID:
             Object_PrintCuboidData(obj.data.cuboidData);
             break;
         default:

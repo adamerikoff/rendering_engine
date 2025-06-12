@@ -42,3 +42,4 @@ typedef struct IntersectionRoots {
 
 IntersectionRoots App_IntersectRaySphere(Vector3 origin, Vector3 direction, Object sphere);
 Color App_TraceRay(App* app, Vector3 direction, float min_t, float max_t);
+float App_ComputeLightning(App* app, Vector3 point, Vector3 normal);

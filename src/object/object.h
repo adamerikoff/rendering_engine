@@ -5,9 +5,9 @@
 #include "../vector/vector.h"
 
 typedef enum ObjectType {
-    LIGHT_TYPE_SPHERE,
-    LIGHT_TYPE_CUBE,
-    LIGHT_TYPE_CUBOID
+    OBJECT_TYPE_SPHERE,
+    OBJECT_TYPE_CUBE,
+    OBJECT_TYPE_CUBOID
 } ObjectType;
 
 typedef struct CubeObjectData {

@@ -37,14 +37,14 @@ int App_Init(App* app, const char* title, int width, int height) {
         1.0
     );
 
-    app->background_color = Color_New(0, 0, 0, 255);
+    app->background_color = Color_New(255, 255, 255, 255);
 
     app->scene = Scene_New();
     
     ObjectList_Add(
         app->scene->object_list, 
         Object_NewSphere(
-            Vector3_New(0.0, 1.0, 3.0),
+            Vector3_New(0.0, -1.0, 4.0),
             Color_New(255, 0, 0, 255),
             1.0
         )
@@ -52,7 +52,7 @@ int App_Init(App* app, const char* title, int width, int height) {
     ObjectList_Add(
         app->scene->object_list, 
         Object_NewSphere(
-            Vector3_New(-2.0, 0.0, 4.0),
+            Vector3_New(-2.0, 0.0, 5.0),
             Color_New(0, 255, 0, 255),
             1.0
         )
@@ -60,7 +60,7 @@ int App_Init(App* app, const char* title, int width, int height) {
     ObjectList_Add(
         app->scene->object_list, 
         Object_NewSphere(
-            Vector3_New(2.0, 0.0, 4.0),
+            Vector3_New(2.0, 0.0, 5.0),
             Color_New(0, 0, 255, 255),
             1.0
         )
@@ -71,6 +71,25 @@ int App_Init(App* app, const char* title, int width, int height) {
             Vector3_New(0.0, -5001.0, 0.0),
             Color_New(255, 255, 0, 255),
             5000.0
+        )
+    );
+
+    LightList_Add(
+        app->scene->light_list,
+        Light_NewAmbient(0.2)
+    );
+    LightList_Add(
+        app->scene->light_list,
+        Light_NewPoint(
+            Vector3_New(5.0, 1.0, 0.0),
+            0.6
+        )
+    );
+    LightList_Add(
+        app->scene->light_list,
+        Light_NewDirectional(
+            Vector3_New(1.0, 4.0, 4.0),
+            0.2
         )
     );
 
@@ -136,6 +155,17 @@ void App_Run(App* app) {
         while (SDL_PollEvent(&e) != 0) {
             if (e.type == SDL_QUIT) {
                 app->isRunning = 0; // Exit loop on quit event
+            } else if (e.type == SDL_KEYDOWN) {
+                // A keyboard key was pressed
+                switch (e.key.keysym.sym) {
+                    case SDLK_ESCAPE: // Check if the pressed key is the Escape key
+                        app->isRunning = 0; // Set flag to exit the main loop
+                        break;
+                    // Add other key handling here if needed
+                    // case SDLK_UP:
+                    //     // Handle up arrow key
+                    //     break;
+                }
             }
         }
 
@@ -279,5 +309,47 @@ Color App_TraceRay(App* app, Vector3 direction, float min_t, float max_t) {
         return app->background_color;
     }
 
-    return closest_sphere->color;
+    Vector3 point = Vector3_Add(app->camera.position, Vector3_Scale(direction, closest_t));
+    Vector3 normal = Vector3_Subtract(point, closest_sphere->position);
+
+    float intensity = App_ComputeLightning(app, point, normal);
+
+    return Color_New(
+        closest_sphere->color.r * intensity,
+        closest_sphere->color.g * intensity,
+        closest_sphere->color.b * intensity,
+        closest_sphere->color.a
+    );
+}
+
+float App_ComputeLightning(App* app, Vector3 point, Vector3 normal) {
+    float intensity = 0;
+    Vector3 normalized_normal = Vector3_Normalize(normal);
+    float length_normal = Vector3_Magnitude(normalized_normal);
+
+    Vector3 l;
+
+    for (int i = 0; i < app->scene->light_list->count; i++) {
+        Light light = app->scene->light_list->lights[i];
+
+        switch (light.type) {
+            case LIGHT_TYPE_AMBIENT:
+                intensity += light.intensity;
+                break;
+            case LIGHT_TYPE_POINT:
+                l = Vector3_Subtract(light.data.pointData.position, point);
+                break;
+            case LIGHT_TYPE_DIRECTIONAL:
+                l = light.data.directionalData.direction;
+                break;  
+            default:
+                printf("  Unknown Object Type\n");
+                break;
+        }
+        float n_dot_l = Vector3_Dot(normalized_normal, l);
+        if (n_dot_l > 0) {
+            intensity += light.intensity * n_dot_l / (length_normal * Vector3_Magnitude(l));
+        }
+    }
+    return intensity;
 }

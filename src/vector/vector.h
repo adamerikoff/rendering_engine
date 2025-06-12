@@ -1,28 +1,30 @@
 #pragma once
 
+#include <stdlib.h>
+#include <stdio.h>
+
 typedef struct Vector3 {
     float x;
     float y;
     float z;
 } Vector3;
 
-typedef struct IntersectionRoots {
-    float root1;
-    float root2;
-} IntersectionRoots;
+Vector3 Vector3_New(float x, float y, float z);
+Vector3 Vector3_Add(Vector3 a, Vector3 b);
+Vector3 Vector3_Subtract(Vector3 a, Vector3 b);
+Vector3 Vector3_Scale(Vector3 vec, float scalar);
+Vector3 Vector3_Cross(Vector3 a, Vector3 b);
+Vector3 Vector3_Normalize(Vector3 vec);
+float Vector3_Dot(Vector3 a, Vector3 b);
+float Vector3_MagnitudeSq(Vector3 vec);
+float Vector3_Magnitude(Vector3 vec);
+void Vector3_Print(const char* label, Vector3 vec);
 
 typedef struct Color {
-    int r;
-    int g;
-    int b;
-    int a;
+    unsigned char r;
+    unsigned char g;
+    unsigned char b;
+    unsigned char a;
 } Color;
 
-Vector3 Vector3Sum(Vector3 vec1, Vector3 vec2);
-Vector3 Vector3Scalar(Vector3 vec1, float scalar);
-Vector3 Vector3Difference(Vector3 vec1, Vector3 vec2);
-Vector3 Vector3HadamardProduct(Vector3 vec1, Vector3 vec2);
-Vector3 Vector3Normalize(Vector3 v);
-float Vector3Length(Vector3 v);
-float Vector3GrandSum(Vector3 vec);
-float Vector3Dot(Vector3 vec1, Vector3 vec2);
+Color Color_New(unsigned char r, unsigned char g, unsigned char b, unsigned char a);

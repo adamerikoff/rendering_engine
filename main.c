@@ -12,7 +12,7 @@ int main(int argc, char* args[]) {
 
     // Initialize the application.
     // If initialization fails, SDLApp_Init will return non-zero.
-    if (!App_Init(&myApp, "My SDL Window", SCREEN_WIDTH, SCREEN_HEIGHT)) {
+    if (!App_Init(&myApp, "Rendering Engine", SCREEN_WIDTH, SCREEN_HEIGHT)) {
         // If initialization is successful, run the application.
         App_Run(&myApp);
     }

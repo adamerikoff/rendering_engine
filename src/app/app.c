@@ -1,234 +1,248 @@
 #include "app.h"
-#include <float.h>
-#include <math.h>
-// --- Function Implementations ---
+#include <float.h> // For FLT_MAX
+#include <math.h>  // For sqrtf, fminf
+#include <stdio.h> // For fprintf, printf
+#include <SDL2/SDL.h>   // For SDL functions
+
+// ============================================================================
+// APPLICATION INITIALIZATION
+// ============================================================================
 
 /**
- * @brief Initializes the SDL application by creating a window and renderer.
- * @param app A pointer to the App struct to initialize.
- * @param title The title of the window.
- * @param width The width of the window.
- * @param height The height of the window.
- * @return 0 on success, 1 on failure.
+ * @brief Initializes the SDL application with window, renderer, and scene setup
+ * @param app Pointer to App struct to initialize
+ * @param title Window title string
+ * @param width Window width in pixels
+ * @param height Window height in pixels
+ * @return 0 on success, 1 on failure
  */
+
 int App_Init(App* app, const char* title, int width, int height) {
+    // Initialize app state
     app->window = NULL;
     app->renderer = NULL;
+    app->isRunning = 0; // Application not running yet
     
-    app->isRunning = 0; // Not running yet
-
-    app->canvasHeight = height;
-    app->canvasWidth = width;
-
-    app->maxAdjustedHeight = height / 2;
-    app->maxAdjustedWidth = width / 2;
-
-    // --- Camera Initialization ---
-    // Camera position (origin of the camera, usually {0,0,0} for simple raytracing)
-    app->camera.position.x = 0.0f;
-    app->camera.position.y = 0.0f;
-    app->camera.position.z = 0.0f;
-
-    // Viewport width in world units.
-    // Common to set to 1.0, and then other scene objects are scaled relative to this.
-    app->camera.viewportWidth = 1.0f;
+    // Set up canvas dimensions
+    app->canvas_height = height;
+    app->canvas_width = width;
     
-    // Viewport height in world units, calculated to match canvas aspect ratio
-    // to prevent image distortion.
-    app->camera.viewportHeight = app->camera.viewportWidth * ((float)height / width);
+    // ======================
+    // INTERNAL SCENE INITIALIZATION
+    // ======================
+
+    app->camera = Camera_New(
+        Vector3_New(0.0, 0.0, 0.0),
+        1.0,
+        1.0
+    );
+
+    app->background_color = Color_New(0, 0, 0, 255);
+
+    app->scene = Scene_New();
     
-    // Distance from camera to viewport. This defines the Z-coordinate of the viewport.
-    // A smaller 'd' gives a wider field of view (more "fish-eye").
-    // A larger 'd' gives a narrower field of view (more "telephoto").
-    app->camera.d = 1.0f;
+    ObjectList_Add(
+        app->scene->object_list, 
+        Object_NewSphere(
+            Vector3_New(0.0, 1.0, 3.0),
+            Color_New(255, 0, 0, 255),
+            1.0
+        )
+    );
+    ObjectList_Add(
+        app->scene->object_list, 
+        Object_NewSphere(
+            Vector3_New(-2.0, 0.0, 4.0),
+            Color_New(0, 255, 0, 255),
+            1.0
+        )
+    );
+    ObjectList_Add(
+        app->scene->object_list, 
+        Object_NewSphere(
+            Vector3_New(2.0, 0.0, 4.0),
+            Color_New(0, 0, 255, 255),
+            1.0
+        )
+    );
+    ObjectList_Add(
+        app->scene->object_list, 
+        Object_NewSphere(
+            Vector3_New(0.0, -5001.0, 0.0),
+            Color_New(255, 255, 0, 255),
+            5000.0
+        )
+    );
 
-    app->backgroundColor = (Color) {.r = 0xEB, .g = 0xF0, .b = 0xBD, .a = 0x00};
 
-    // Allocate memory for 'num_spheres' structs of type Sphere on the heap
-    app->spheres = (Sphere*)malloc(3 * sizeof(Sphere));
-    // Always check if malloc succeeded!
-    if (app->spheres == NULL) {
-        fprintf(stderr, "Memory allocation failed!\n");
-        return 1;
-    }
-    app->spheres[0] = (Sphere) {
-        .position = (Vector3) {.x = 5, .y = 5, .z = 50},
-        .radius = 5,
-        .color = (Color) {.r = 0x3C, .g = 0x70, .b = 0x8F, .a = 0x00}
-    };
-    app->spheres[1] = (Sphere) {
-        .position = (Vector3) {.x = -2, .y = 10, .z = 40},
-        .radius = 8,
-        .color = (Color) {.r = 0xC8, .g = 0x70, .b = 0xA, .a = 0x00}
-    };
-    app->spheres[2] = (Sphere) {
-        .position = (Vector3) {.x = 20, .y = 20, .z = 70},
-        .radius = 3,
-        .color = (Color) {.r = 0xC3, .g = 0xB2, .b = 0x8F, .a = 0x00}
-    };
-
-    // Initialize SDL
+    // ======================
+    // SDL INITIALIZATION
+    // ======================
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-        fprintf(stderr, "SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
+        fprintf(stderr, "SDL initialization failed: %s\n", SDL_GetError());
         return 1;
     }
 
-    // Create window
-    app->window = SDL_CreateWindow(title,
-                                  SDL_WINDOWPOS_UNDEFINED,
-                                  SDL_WINDOWPOS_UNDEFINED,
-                                  width,
-                                  height,
-                                  SDL_WINDOW_SHOWN);
-    if (app->window == NULL) {
-        fprintf(stderr, "Window could not be created! SDL_Error: %s\n", SDL_GetError());
+    // Create application window
+    app->window = SDL_CreateWindow(
+        title,
+        SDL_WINDOWPOS_UNDEFINED,
+        SDL_WINDOWPOS_UNDEFINED,
+        width,
+        height,
+        SDL_WINDOW_SHOWN
+    );
+    
+    if (!app->window) {
+        fprintf(stderr, "Window creation failed: %s\n", SDL_GetError());
         SDL_Quit();
         return 1;
     }
 
-    // Create renderer
+    // Create hardware-accelerated renderer
     app->renderer = SDL_CreateRenderer(app->window, -1, SDL_RENDERER_ACCELERATED);
-    if (app->renderer == NULL) {
-        fprintf(stderr, "Renderer could not be created! SDL_Error: %s\n", SDL_GetError());
+    if (!app->renderer) {
+        fprintf(stderr, "Renderer creation failed: %s\n", SDL_GetError());
         SDL_DestroyWindow(app->window);
         SDL_Quit();
         return 1;
     }
 
-    // Set draw color to black and clear the screen
+    // Clear screen to black
     SDL_SetRenderDrawColor(app->renderer, 0x00, 0x00, 0x00, 0xFF);
     SDL_RenderClear(app->renderer);
     SDL_RenderPresent(app->renderer);
 
-    app->isRunning = 1; // Set running flag to true
-    return 0; // Success
+    app->isRunning = 1; // Mark application as running
+    return 0; // Initialization successful
 }
 
+// ============================================================================
+// MAIN APPLICATION LOOP
+// ============================================================================
+
 /**
- * @brief Runs the main event loop of the SDL application.
- * @param app A pointer to the App struct.
+ * @brief Runs the main application event and rendering loop
+ * @param app Pointer to the App struct containing application state
  */
 void App_Run(App* app) {
     SDL_Event e;
+    
+    // Main application loop
     while (app->isRunning) {
+        // ======================
+        // EVENT PROCESSING
+        // ======================
         while (SDL_PollEvent(&e) != 0) {
             if (e.type == SDL_QUIT) {
-                app->isRunning = 0; // Set quit flag to exit loop
+                app->isRunning = 0; // Exit loop on quit event
             }
         }
-        // 2. Update Game State/Logic
-        // This is where you would update positions of objects, handle physics, etc.
-        // For example:
-        // App_UpdateGameLogic(app);
 
-        // 3. Rendering
-        // Clear the screen at the beginning of each frame
-        SDL_SetRenderDrawColor(app->renderer, 0x00, 0x00, 0x00, 0xFF); // Set background color (e.g., black)
+        // ======================
+        // RENDERING
+        // ======================
+        // Clear screen for new frame
+        SDL_SetRenderDrawColor(app->renderer, 0, 0, 0, 255);
         SDL_RenderClear(app->renderer);
 
-        // --- Raytracing Pixel Loop --- 
-        for (int x_pixel = -app->maxAdjustedWidth; x_pixel < app->maxAdjustedWidth; x_pixel++) {
-            for (int y_pixel = -app->maxAdjustedHeight; y_pixel < app->maxAdjustedHeight; y_pixel++) {
-                // Get the 3D point on the viewport for this pixel using the camera function
-                Vector3 viewport_point = Camera_GetViewportPointForPixel(
-                                          &app->camera,
-                                          x_pixel, y_pixel,
-                                          app->canvasWidth, 
-                                          app->canvasHeight
-                                      );
+        int canvas_width_mid = app->canvas_width / 2;
+        int canvas_height_mid = app->canvas_height / 2;
 
-                // --- For Demonstration: Simple Color Based on Viewport Coordinates ---
-                // (Adjust the color calculation to use viewport_point's components)
-                Color color = App_TraceRay(app, app->camera.position, viewport_point, 0.001f, FLT_MAX);
-
-                App_DrawPixel(app, x_pixel, y_pixel, color);
+        for (int x = -canvas_width_mid; x < canvas_width_mid; x++) {
+            for (int y = -canvas_height_mid; y < canvas_height_mid; y++) {
+                Vector3 direction = Camera_CanvasToViewport(app->camera, x, y, app->canvas_width, app->canvas_width);
+                Color color = App_TraceRay(app, direction, 0.1, FLT_MAX);
+                App_DrawPixel(app, x, y, color);
             }
         }
 
-        // Present the rendered content to the screen
+        // Display rendered frame
         SDL_RenderPresent(app->renderer);
-
-        // Add a small delay to control frame rate (e.g., aiming for ~60 FPS)
-        SDL_Delay(16);
+        
+        // Cap frame rate to ~60 FPS
+        SDL_Delay(60);
     }
 }
 
+// ============================================================================
+// RENDERING FUNCTIONS
+// ============================================================================
+
 /**
- * @brief Set color for a specific pixel on the screen.
- * @param app A pointer to the App struct.
+ * @brief Draws a single pixel on the application's renderer at a specified (x, y) coordinate with a given color.
+ *
+ * This function takes coordinates relative to the center of the canvas (where (0,0) is the center),
+ * converts them to SDL's top-left (0,0) coordinate system, and then attempts to draw the pixel.
+ * It also includes bounds checking to ensure the pixel is within the canvas dimensions.
+ *
+ * @param app A pointer to the App structure, containing the renderer and canvas dimensions.
+ * @param x The x-coordinate of the pixel, relative to the center of the canvas.
+ * @param y The y-coordinate of the pixel, relative to the center of the canvas.
+ * @param color The Color structure containing the RGBA values for the pixel.
  */
-void App_DrawPixel(App* app, int x_adjusted, int y_adjusted, Color color) {
-    // 1. Set the drawing color for the renderer
+void App_DrawPixel(App* app, int x, int y, Color color) {
+    // Set the drawing color for the renderer using the provided Color structure's RGBA components.
     SDL_SetRenderDrawColor(app->renderer, color.r, color.g, color.b, color.a);
 
-    // Convert centered x, y to SDL's top-left (0,0) coordinate system
-    int canvasX = x_adjusted + (app->canvasWidth / 2);
-    int canvasY = (app->canvasHeight / 2) - 1 - y_adjusted;
+    // Convert the user-provided centered (x, y) coordinates to SDL's top-left (0,0) coordinate system.
+    // SDL's origin (0,0) is typically the top-left corner of the window/renderer.
+    // The canvas's center x is found by app->canvasWidth / 2. Adding 'x' shifts it right for positive 'x'.
+    int canvasX = (app->canvas_width / 2) + x;
+    // The canvas's center y is found by app->canvasHeight / 2. Subtracting 'y' moves it up for positive 'y'
+    // (since SDL's Y-axis increases downwards). Subtracting 1 ensures the pixel is correctly placed
+    // given SDL's pixel rendering behavior.
+    int canvasY = (app->canvas_height / 2) - y - 1;
 
-
-
-    // It's good practice to add bounds checks here, though not strictly required if
-    // your loops are correct.
-    if (canvasX >= 0 && canvasX < app->canvasWidth &&
-        canvasY >= 0 && canvasY < app->canvasHeight) {
+    // Perform bounds checking to ensure the calculated pixel coordinates are within the canvas's visible area.
+    // If the pixel is outside these bounds, drawing it would have no effect or could potentially cause issues.
+    if (canvasX >= 0 && canvasX < app->canvas_width &&
+        canvasY >= 0 && canvasY < app->canvas_height) {
+        // If the pixel is within bounds, draw the point on the renderer at the calculated SDL coordinates.
         SDL_RenderDrawPoint(app->renderer, canvasX, canvasY);
     } else {
+        // If the pixel is out of bounds, print a message to the console for debugging purposes.
         printf("OUT OF BOUND: %d %d", canvasX, canvasY);
     }
 }
 
+// ============================================================================
+// CLEANUP FUNCTIONS
+// ============================================================================
+
 /**
- * @brief Cleans up all SDL resources.
- * @param app A pointer to the App struct to clean up.
- * @param app A pointer to the App struct to clean up.
- * @param app A pointer to the App struct to clean up.
- * @param app A pointer to the App struct to clean up.
+ * @brief Cleans up all application resources
+ * @param app Pointer to App struct to clean up
  */
-Color App_TraceRay(App* app, Vector3 ray_origin, Vector3 ray_direction, float t_min, float t_max) {
-    Sphere* closest_sphere = NULL; // Pointer to the closest sphere hit
-    float closest_t = t_max;       // Initialize with the maximum possible 't' value
-
-    // Normalize the ray direction. This is crucial for correct distance (t) calculations
-    // and consistent behavior in intersection tests.
-    ray_direction = Vector3Normalize(ray_direction);
-
-    // Loop through all spheres in the scene to find the closest intersection
-    for (int i = 0; i < 3; i++) {
-        // Calculate intersection roots for the current sphere
-        IntersectionRoots roots = App_IntersectRaySphere(ray_origin, ray_direction, &(app->spheres[i]));
-
-        // Check the first root (root1)
-        if (roots.root1 > t_min && roots.root1 < closest_t) {
-            closest_t = roots.root1;           // Update closest 't'
-            closest_sphere = &(app->spheres[i]); // Store pointer to the current sphere
-        }
-
-        // Check the second root (root2)
-        // It's important to check both, as root2 might be closer if root1 is negative (behind ray origin)
-        // or just beyond the current closest_t.
-        if (roots.root2 > t_min && roots.root2 < closest_t) {
-            closest_t = roots.root2;           // Update closest 't'
-            closest_sphere = &(app->spheres[i]); // Store pointer to the current sphere
-        }
+void App_Cleanup(App* app) {
+    // Clean up SDL resources in reverse creation order
+    if (app->renderer) {
+        SDL_DestroyRenderer(app->renderer);
+        app->renderer = NULL;
     }
-
-    // After checking all spheres, determine what to return
-    if (closest_sphere == NULL) {
-        return app->backgroundColor;
-    } else {
-        return closest_sphere->color;
+    
+    if (app->window) {
+        SDL_DestroyWindow(app->window);
+        app->window = NULL;
     }
+    
+    SDL_Quit();
 }
 
-IntersectionRoots App_IntersectRaySphere(Vector3 ray_origin, Vector3 ray_direction, Sphere* sphere) {
-    IntersectionRoots roots = {FLT_MAX, FLT_MAX}; // Initialize with no valid roots
 
-    Vector3 oc = Vector3Difference(ray_origin, sphere->position);
+// ============================================================================
+// RAYTRACING FUNCTIONS
+// ============================================================================
+
+IntersectionRoots App_IntersectRaySphere(Vector3 origin, Vector3 direction, Object sphere) {
+    IntersectionRoots roots = {FLT_MAX, FLT_MAX};
+
+    Vector3 oc = Vector3_Subtract(origin, sphere.position);
 
     // Quadratic equation coefficients: at^2 + bt + c = 0
-    float a = Vector3Dot(ray_direction, ray_direction); // Equivalent to |ray_direction|^2
-    float b = 2.0f * Vector3Dot(oc, ray_direction);
-    float c = Vector3Dot(oc, oc) - sphere->radius * sphere->radius;
+    float a = Vector3_Dot(direction, direction); // Equivalent to |ray_direction|^2
+    float b = 2.0f * Vector3_Dot(oc, direction);
+    float c = Vector3_Dot(oc, oc) - sphere.data.sphereData.radius * sphere.data.sphereData.radius;
 
     float discriminant = b * b - 4 * a * c;
 
@@ -244,21 +258,26 @@ IntersectionRoots App_IntersectRaySphere(Vector3 ray_origin, Vector3 ray_directi
     return roots;
 }
 
-/**
- * @brief Cleans up all SDL resources.
- * @param app A pointer to the App struct to clean up.
- */
-void App_Cleanup(App* app) {
-    // Clean up camera resources (even if currently empty)
-    Camera_Cleanup(&app->camera);
+Color App_TraceRay(App* app, Vector3 direction, float min_t, float max_t) {
+    float closest_t = FLT_MAX;
+    Object* closest_sphere = NULL;
 
-    if (app->renderer != NULL) {
-        SDL_DestroyRenderer(app->renderer);
-        app->renderer = NULL;
+    for (int i = 0; i < app->scene->object_list->count; i++) {
+        IntersectionRoots roots = App_IntersectRaySphere(app->camera.position, direction, app->scene->object_list->objects[i]);
+        
+        if (roots.root1 < closest_t && min_t < roots.root1 && roots.root1 < max_t) {
+            closest_t = roots.root1;
+            closest_sphere = &(app->scene->object_list->objects[i]);
+        }
+        if (roots.root2 < closest_t && min_t < roots.root2 && roots.root2 < max_t) {
+            closest_t = roots.root2;
+            closest_sphere = &(app->scene->object_list->objects[i]);
+        }
+    }   
+
+    if (closest_sphere == NULL) {
+        return app->background_color;
     }
-    if (app->window != NULL) {
-        SDL_DestroyWindow(app->window);
-        app->window = NULL;
-    }
-    SDL_Quit();
+
+    return closest_sphere->color;
 }

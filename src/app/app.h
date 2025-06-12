@@ -5,7 +5,9 @@
 
 #include "../camera/camera.h"
 #include "../vector/vector.h"
-#include "../objects/sphere.h"
+#include "../object/object.h"
+#include "../light/light.h"
+#include "../scene/scene.h"
 // --- SDLApp Struct Definition ---
 
 
@@ -15,17 +17,13 @@ typedef struct {
     SDL_Renderer* renderer;
     int isRunning; // Flag to control the main loop
 
-    int canvasWidth;
-    int canvasHeight;
+    int canvas_width;
+    int canvas_height;
 
-    int maxAdjustedWidth;
-    int maxAdjustedHeight;
+    Camera camera;
 
-    Camera camera;      // The camera for the scene
-
-    Color backgroundColor;
-
-    Sphere* spheres;
+    Color background_color;
+    Scene* scene;
 } App;
 
 // --- Function Prototypes ---
@@ -34,6 +32,13 @@ int App_Init(App* app, const char* title, int width, int height);
 void App_Run(App* app);
 void App_Cleanup(App* app);
 
-void App_DrawPixel(App* app, int x_adjusted, int y_adjusted, Color color);
-Color App_TraceRay(App* app, Vector3 ray_origin, Vector3 ray_direction, float t_min, float t_max);
-IntersectionRoots App_IntersectRaySphere(Vector3 origin, Vector3 direction, Sphere* sphere );
+void App_DrawPixel(App* app, int x, int y, Color color);
+
+
+typedef struct IntersectionRoots {
+    float root1;
+    float root2;
+} IntersectionRoots;
+
+IntersectionRoots App_IntersectRaySphere(Vector3 origin, Vector3 direction, Object sphere);
+Color App_TraceRay(App* app, Vector3 direction, float min_t, float max_t);

@@ -2,31 +2,16 @@
 
 #include "../vector/vector.h"
 
-/**
- * @brief Represents the virtual camera in the 3D scene.
- */
 typedef struct Camera {
-    Vector3 position;      // Camera's position in world space (e.g., {0,0,0})
-    float viewportWidth;  // Viewport width in world units (Vw)
-    float viewportHeight; // Viewport height in world units (Vh)
-    float d;            // Distance from camera to viewport (Vz = d)
+    Vector3 position;         // Camera's position in world space (e.g., {0,0,0})
+    float viewport_width;      // Viewport width in world units (Vw)
+    float viewport_height;     // Viewport height in world units (Vh)
+    float projection_plane_z;  // Distance from camera to viewport (Vz = d)
+    float viewport_size;
 } Camera;
 
-/**
- * @brief Cleans up camera-specific resources. (Currently empty, but good for future)
- * @param camera A pointer to the Camera struct to clean up.
- */
 void Camera_Cleanup(Camera* camera);
+Camera Camera_New(Vector3 position, float projection_plane_z, float viewport_size);
 
-/**
- * @brief Calculates the 3D point on the viewport corresponding to a 2D pixel on the canvas.
- * Assumes camera is at origin (0,0,0) looking along +Z.
- *
- * @param camera A pointer to the Camera struct with viewport definitions.
- * @param x_pixel The X-coordinate of the pixel on the canvas (from top-left).
- * @param y_pixel The Y-coordinate of the pixel on the canvas (from top-left).
- * @param canvas_width The total width of the canvas (window) in pixels.
- * @param canvas_height The total height of the canvas (window) in pixels.
- * @return A Vec3 representing the 3D point on the viewport.
- */
-Vector3 Camera_GetViewportPointForPixel(const Camera* camera, int x_pixel, int y_pixel, int full_canvas_width, int full_canvas_height);
+// Converts 2D canvas coordinates to 3D viewport coordinates.
+Vector3 Camera_CanvasToViewport(Camera camera, int x, int y, int canvas_width, int canvas_height);

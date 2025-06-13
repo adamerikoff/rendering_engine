@@ -43,4 +43,4 @@ IntersectionRoots App_IntersectRaySphere(Vector3 ray_origin, Vector3 ray_directi
 // Updated parameter names
 Color App_TraceRay(App* app, Vector3 ray_direction, float t_min, float t_max); 
 // Updated parameter names
-float App_ComputeLightning(App* app, Vector3 surface_point, Vector3 surface_normal); 
+float App_ComputeLightning(App* app, Vector3 surface_point, Vector3 surface_normal, int specular_exponent, Vector3 ray_direction_from_camera);

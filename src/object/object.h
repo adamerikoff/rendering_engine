@@ -28,6 +28,7 @@ typedef struct Object {
     ObjectType type;
     Vector3 position;
     Color color;
+    int specular;
 
     union {
         CubeObjectData cubeData;
@@ -36,11 +37,11 @@ typedef struct Object {
     } data;
 } Object;
 
-Object Object_NewCube(Vector3 center, Color color, float size);
+Object Object_NewCube(Vector3 center, Color color, float size, int specular);
 void Object_PrintCubeData(CubeObjectData cubeData);
-Object Object_NewCuboid(Vector3 center, Color color, float width, float height, float length);
+Object Object_NewCuboid(Vector3 center, Color color, float width, float height, float length, int specular);
 void Object_PrintCuboidData(CuboidObjectData cuboidData);
-Object Object_NewSphere(Vector3 center, Color color, float radius);
+Object Object_NewSphere(Vector3 center, Color color, float radius, int specular);
 void Object_PrintSphereData(SphereObjectData sphereData);
 void Object_Print(const char* label, Object obj);
 

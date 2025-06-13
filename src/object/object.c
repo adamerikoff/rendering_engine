@@ -10,11 +10,12 @@
  * @param size The size (side length) of the cube.
  * @return A new Object representing a cube.
  */
-Object Object_NewCube(Vector3 center, Color color, float size) {
+Object Object_NewCube(Vector3 center, Color color, float size, int specular) {
     Object obj;
     obj.type = OBJECT_TYPE_CUBE;
     obj.position = center;
     obj.color = color;
+    obj.specular = specular;
     obj.data.cubeData.size = size;
     return obj;
 }
@@ -26,11 +27,12 @@ Object Object_NewCube(Vector3 center, Color color, float size) {
  * @param radius The radius of the sphere.
  * @return A new Object representing a sphere.
  */
-Object Object_NewSphere(Vector3 center, Color color, float radius) {
+Object Object_NewSphere(Vector3 center, Color color, float radius, int specular) {
     Object obj;
     obj.type = OBJECT_TYPE_SPHERE;
     obj.position = center;
     obj.color = color;
+    obj.specular = specular;
     obj.data.sphereData.radius = radius;
     return obj;
 }
@@ -44,11 +46,12 @@ Object Object_NewSphere(Vector3 center, Color color, float radius) {
  * @param length The length of the cuboid.
  * @return A new Object representing a cuboid.
  */
-Object Object_NewCuboid(Vector3 center, Color color, float width, float height, float length) {
+Object Object_NewCuboid(Vector3 center, Color color, float width, float height, float length, int specular) {
     Object obj;
     obj.type = OBJECT_TYPE_CUBOID;
     obj.position = center;
     obj.color = color;
+    obj.specular = specular;
     obj.data.cuboidData.width = width;
     obj.data.cuboidData.height = height;
     obj.data.cuboidData.length = length;
@@ -94,6 +97,7 @@ void Object_PrintCuboidData(CuboidObjectData cuboidData) {
 void Object_Print(const char* label, Object obj) {
     printf("%s:\n", label);
     Vector3_Print("  Center", obj.position);
+    printf("Specular: %d:\n", obj.specular);
     printf("  Color: (R:%d, G:%d, B:%d, A:%d)\n", obj.color.r, obj.color.g, obj.color.b, obj.color.a);
 
     switch (obj.type) {

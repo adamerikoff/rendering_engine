@@ -142,3 +142,12 @@ Color Color_New(unsigned char r, unsigned char g, unsigned char b, unsigned char
     Color color = {r, g, b, a};
     return color;
 }
+
+/**
+ * @brief Prints the components of a Color struct to the console.
+ * @param label A string label to print before the color components.
+ * @param color The Color struct to print.
+ */
+void Color_Print(const char* label, Color color) {
+    printf("%s: (R:%hhu, G:%hhu, B:%hhu, A:%hhu)\n", label, color.r, color.g, color.b, color.a);
+}

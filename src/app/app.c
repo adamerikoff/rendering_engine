@@ -37,7 +37,7 @@ int App_Init(App* app, const char* title, int width, int height) {
         1.0  // viewport_height (assuming square viewport based on CanvasToViewport usage)
     );
 
-    app->background_color = Color_New(255, 255, 255, 255);
+    app->background_color = Color_New(255, 255, 255, 254);
 
     app->scene = Scene_New();
     
@@ -45,33 +45,37 @@ int App_Init(App* app, const char* title, int width, int height) {
     ObjectList_Add(
         app->scene->object_list, 
         Object_NewSphere(
-            Vector3_New(0.0, -1.0, 4.0),
-            Color_New(255, 0, 0, 255), // Red sphere
-            1.0
+            Vector3_New(0.0, -1.0, 5.0),
+            Color_New(255, 0, 0, 254), // Red sphere
+            1.0,
+            5000
         )
     );
     ObjectList_Add(
         app->scene->object_list, 
         Object_NewSphere(
-            Vector3_New(-2.0, 0.0, 5.0),
-            Color_New(0, 255, 0, 255), // Green sphere
-            1.0
+            Vector3_New(-2.0, 0.0, 6.0),
+            Color_New(0, 255, 0, 254), // Green sphere
+            1.0,
+            10
         )
     );
     ObjectList_Add(
         app->scene->object_list, 
         Object_NewSphere(
-            Vector3_New(2.0, 0.0, 5.0),
-            Color_New(0, 0, 255, 255), // Blue sphere
-            1.0
+            Vector3_New(2.0, 0.0, 7.0),
+            Color_New(0, 0, 255, 254), // Blue sphere
+            1.0,
+            500
         )
     );
     ObjectList_Add(
         app->scene->object_list, 
         Object_NewSphere(
             Vector3_New(0.0, -5001.0, 0.0),
-            Color_New(255, 255, 0, 255), // Yellow ground sphere
-            5000.0
+            Color_New(255, 255, 0, 254), // Yellow ground sphere
+            5000.0,
+            1000
         )
     );
 
@@ -83,14 +87,14 @@ int App_Init(App* app, const char* title, int width, int height) {
     LightList_Add(
         app->scene->light_list,
         Light_NewPoint(
-            Vector3_New(5.0, 1.0, 0.0),
-            0.6 // Point light
+            Vector3_New(5.0, 3.0, -2.0),
+            0.5 // Point light
         )
     );
     LightList_Add(
         app->scene->light_list,
         Light_NewDirectional(
-            Vector3_New(1.0, 4.0, 4.0), // Direction of the light rays
+            Vector3_New(5.0, 5.0, -5.0), // Direction of the light rays
             0.2 // Directional light
         )
     );
@@ -324,53 +328,69 @@ Color App_TraceRay(App* app, Vector3 ray_direction, float t_min, float t_max) { 
     Vector3 surface_normal = Vector3_Subtract(intersection_point, hit_object->position); // Renamed normal
 
     // Compute the total light intensity at the intersection point
-    float light_intensity = App_ComputeLightning(app, intersection_point, surface_normal); // Renamed intensity
+    float light_intensity = App_ComputeLightning(app, intersection_point, surface_normal, hit_object->specular, ray_direction); // Renamed intensity
 
     // Return the object's color multiplied by the calculated light intensity
-    return Color_New(
+    Color color = Color_New(
         hit_object->color.r * light_intensity,
         hit_object->color.g * light_intensity,
         hit_object->color.b * light_intensity,
         hit_object->color.a
     );
+    return color;
 }
 
-float App_ComputeLightning(App* app, Vector3 surface_point, Vector3 surface_normal) { // Renamed point, normal
-    float total_intensity = 0; // Renamed intensity
+float App_ComputeLightning(App* app, Vector3 surface_point, Vector3 surface_normal, int specular_exponent, Vector3 ray_direction_from_camera) {
+    float total_intensity = 0;
     
     // Normalize the surface normal once, as it's used repeatedly
     Vector3 normalized_surface_normal = Vector3_Normalize(surface_normal); 
 
-    Vector3 light_direction_vector; // Renamed 'l' to be more descriptive
+    Vector3 light_direction_vector;
+
+    // Normalize the view vector (from surface to camera)
+    Vector3 view_vector = Vector3_Normalize(ray_direction_from_camera);
 
     for (int i = 0; i < app->scene->light_list->count; i++) {
-        Light current_light = app->scene->light_list->lights[i]; // Renamed 'light' to 'current_light'
-
+        Light current_light = app->scene->light_list->lights[i];
         switch (current_light.type) {
             case LIGHT_TYPE_AMBIENT:
                 total_intensity += current_light.intensity;
                 break;
             case LIGHT_TYPE_POINT:
-                // Direction from the surface point towards the point light source
                 light_direction_vector = Vector3_Subtract(current_light.data.pointData.position, surface_point);
                 break;
             case LIGHT_TYPE_DIRECTIONAL:
-                // Direction of the parallel rays for a directional light
                 light_direction_vector = current_light.data.directionalData.direction;
-                break;  
-            default:
-                printf("  Unknown Light Type encountered in App_ComputeLightning\n");
                 break;
+            default:
+                printf("Unknown Light Type encountered in App_ComputeLightning\n");
+                continue;
         }
-        
-        // For point and directional lights, calculate diffuse contribution
-        // We normalize the light_direction_vector here before the dot product
-        // This makes the dot product directly represent cos(theta)
-        float normal_dot_light_direction = Vector3_Dot(normalized_surface_normal, Vector3_Normalize(light_direction_vector)); // Renamed n_dot_l
-        
-        // Only add diffuse light if the light source is on the "front" side of the surface
-        if (normal_dot_light_direction > 0) {
-            total_intensity += current_light.intensity * normal_dot_light_direction; // Simplified due to prior normalization of light_direction_vector
+
+        // Normalize light direction
+        Vector3 normalized_light_dir = Vector3_Normalize(light_direction_vector);
+
+        // --- DIFFUSE LIGHT ---
+        float normal_dot_light = Vector3_Dot(normalized_surface_normal, normalized_light_dir);
+        if (normal_dot_light > 0) {
+            total_intensity += current_light.intensity * normal_dot_light;
+        }
+
+        // --- SPECULAR LIGHT ---
+        if (specular_exponent != -1) {
+            // Correct reflection vector: R = 2(N·L)N - L
+            Vector3 reflection_vector = Vector3_Subtract(
+                Vector3_Scale(normalized_surface_normal, 2.0f * normal_dot_light),
+                normalized_light_dir
+            );
+            Vector3 normalized_reflection = Vector3_Normalize(reflection_vector);
+
+            // Compute R·V (must clamp to avoid negative values)
+            float reflection_dot_view = Vector3_Dot(normalized_reflection, view_vector);
+            if (reflection_dot_view > 0) {
+                total_intensity += current_light.intensity * powf(reflection_dot_view, specular_exponent);
+            }
         }
     }
     return total_intensity;

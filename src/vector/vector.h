@@ -28,3 +28,4 @@ typedef struct Color {
 } Color;
 
 Color Color_New(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
+void Color_Print(const char* label, Color color);

@@ -33,19 +33,20 @@ int App_Init(App* app, const char* title, int width, int height) {
 
     app->camera = Camera_New(
         Vector3_New(0.0, 0.0, 0.0),
-        1.0,
-        1.0
+        1.0, // viewport_width
+        1.0  // viewport_height (assuming square viewport based on CanvasToViewport usage)
     );
 
     app->background_color = Color_New(255, 255, 255, 255);
 
     app->scene = Scene_New();
     
+    // Add spheres to the scene
     ObjectList_Add(
         app->scene->object_list, 
         Object_NewSphere(
             Vector3_New(0.0, -1.0, 4.0),
-            Color_New(255, 0, 0, 255),
+            Color_New(255, 0, 0, 255), // Red sphere
             1.0
         )
     );
@@ -53,7 +54,7 @@ int App_Init(App* app, const char* title, int width, int height) {
         app->scene->object_list, 
         Object_NewSphere(
             Vector3_New(-2.0, 0.0, 5.0),
-            Color_New(0, 255, 0, 255),
+            Color_New(0, 255, 0, 255), // Green sphere
             1.0
         )
     );
@@ -61,7 +62,7 @@ int App_Init(App* app, const char* title, int width, int height) {
         app->scene->object_list, 
         Object_NewSphere(
             Vector3_New(2.0, 0.0, 5.0),
-            Color_New(0, 0, 255, 255),
+            Color_New(0, 0, 255, 255), // Blue sphere
             1.0
         )
     );
@@ -69,27 +70,28 @@ int App_Init(App* app, const char* title, int width, int height) {
         app->scene->object_list, 
         Object_NewSphere(
             Vector3_New(0.0, -5001.0, 0.0),
-            Color_New(255, 255, 0, 255),
+            Color_New(255, 255, 0, 255), // Yellow ground sphere
             5000.0
         )
     );
 
+    // Add lights to the scene
     LightList_Add(
         app->scene->light_list,
-        Light_NewAmbient(0.2)
+        Light_NewAmbient(0.2) // Ambient light
     );
     LightList_Add(
         app->scene->light_list,
         Light_NewPoint(
             Vector3_New(5.0, 1.0, 0.0),
-            0.6
+            0.6 // Point light
         )
     );
     LightList_Add(
         app->scene->light_list,
         Light_NewDirectional(
-            Vector3_New(1.0, 4.0, 4.0),
-            0.2
+            Vector3_New(1.0, 4.0, 4.0), // Direction of the light rays
+            0.2 // Directional light
         )
     );
 
@@ -145,26 +147,23 @@ int App_Init(App* app, const char* title, int width, int height) {
  * @param app Pointer to the App struct containing application state
  */
 void App_Run(App* app) {
-    SDL_Event e;
+    SDL_Event event; // Renamed 'e' to 'event'
     
     // Main application loop
     while (app->isRunning) {
         // ======================
         // EVENT PROCESSING
         // ======================
-        while (SDL_PollEvent(&e) != 0) {
-            if (e.type == SDL_QUIT) {
+        while (SDL_PollEvent(&event) != 0) { // Using 'event'
+            if (event.type == SDL_QUIT) {
                 app->isRunning = 0; // Exit loop on quit event
-            } else if (e.type == SDL_KEYDOWN) {
+            } else if (event.type == SDL_KEYDOWN) {
                 // A keyboard key was pressed
-                switch (e.key.keysym.sym) {
+                switch (event.key.keysym.sym) {
                     case SDLK_ESCAPE: // Check if the pressed key is the Escape key
                         app->isRunning = 0; // Set flag to exit the main loop
                         break;
                     // Add other key handling here if needed
-                    // case SDLK_UP:
-                    //     // Handle up arrow key
-                    //     break;
                 }
             }
         }
@@ -176,14 +175,19 @@ void App_Run(App* app) {
         SDL_SetRenderDrawColor(app->renderer, 0, 0, 0, 255);
         SDL_RenderClear(app->renderer);
 
-        int canvas_width_mid = app->canvas_width / 2;
-        int canvas_height_mid = app->canvas_height / 2;
+        int canvas_half_width = app->canvas_width / 2; // Renamed 'canvas_width_mid'
+        int canvas_half_height = app->canvas_height / 2; // Renamed 'canvas_height_mid'
 
-        for (int x = -canvas_width_mid; x < canvas_width_mid; x++) {
-            for (int y = -canvas_height_mid; y < canvas_height_mid; y++) {
-                Vector3 direction = Camera_CanvasToViewport(app->camera, x, y, app->canvas_width, app->canvas_width);
-                Color color = App_TraceRay(app, direction, 0.1, FLT_MAX);
-                App_DrawPixel(app, x, y, color);
+        for (int pixel_x = -canvas_half_width; pixel_x < canvas_half_width; pixel_x++) { // Renamed 'x' to 'pixel_x'
+            for (int pixel_y = -canvas_half_height; pixel_y < canvas_half_height; pixel_y++) { // Renamed 'y' to 'pixel_y'
+                // Calculate ray direction from camera through the current pixel on the viewport
+                Vector3 ray_direction = Camera_CanvasToViewport(app->camera, pixel_x, pixel_y, app->canvas_width, app->canvas_width); // Renamed 'direction' to 'ray_direction'
+                
+                // Trace the ray into the scene to find the color
+                Color pixel_color = App_TraceRay(app, ray_direction, 0.1, FLT_MAX); // Renamed 'color' to 'pixel_color'
+                
+                // Draw the computed color at the pixel location
+                App_DrawPixel(app, pixel_x, pixel_y, pixel_color);
             }
         }
 
@@ -211,28 +215,28 @@ void App_Run(App* app) {
  * @param y The y-coordinate of the pixel, relative to the center of the canvas.
  * @param color The Color structure containing the RGBA values for the pixel.
  */
-void App_DrawPixel(App* app, int x, int y, Color color) {
+void App_DrawPixel(App* app, int x_centered, int y_centered, Color color) { // Renamed x, y to x_centered, y_centered
     // Set the drawing color for the renderer using the provided Color structure's RGBA components.
     SDL_SetRenderDrawColor(app->renderer, color.r, color.g, color.b, color.a);
 
     // Convert the user-provided centered (x, y) coordinates to SDL's top-left (0,0) coordinate system.
     // SDL's origin (0,0) is typically the top-left corner of the window/renderer.
     // The canvas's center x is found by app->canvasWidth / 2. Adding 'x' shifts it right for positive 'x'.
-    int canvasX = (app->canvas_width / 2) + x;
+    int sdl_x = (app->canvas_width / 2) + x_centered; // Renamed 'canvasX' to 'sdl_x'
     // The canvas's center y is found by app->canvasHeight / 2. Subtracting 'y' moves it up for positive 'y'
     // (since SDL's Y-axis increases downwards). Subtracting 1 ensures the pixel is correctly placed
     // given SDL's pixel rendering behavior.
-    int canvasY = (app->canvas_height / 2) - y - 1;
+    int sdl_y = (app->canvas_height / 2) - y_centered - 1; // Renamed 'canvasY' to 'sdl_y'
 
     // Perform bounds checking to ensure the calculated pixel coordinates are within the canvas's visible area.
     // If the pixel is outside these bounds, drawing it would have no effect or could potentially cause issues.
-    if (canvasX >= 0 && canvasX < app->canvas_width &&
-        canvasY >= 0 && canvasY < app->canvas_height) {
+    if (sdl_x >= 0 && sdl_x < app->canvas_width &&
+        sdl_y >= 0 && sdl_y < app->canvas_height) {
         // If the pixel is within bounds, draw the point on the renderer at the calculated SDL coordinates.
-        SDL_RenderDrawPoint(app->renderer, canvasX, canvasY);
+        SDL_RenderDrawPoint(app->renderer, sdl_x, sdl_y);
     } else {
         // If the pixel is out of bounds, print a message to the console for debugging purposes.
-        printf("OUT OF BOUND: %d %d", canvasX, canvasY);
+        printf("OUT OF BOUND: %d %d", sdl_x, sdl_y);
     }
 }
 
@@ -264,92 +268,110 @@ void App_Cleanup(App* app) {
 // RAYTRACING FUNCTIONS
 // ============================================================================
 
-IntersectionRoots App_IntersectRaySphere(Vector3 origin, Vector3 direction, Object sphere) {
-    IntersectionRoots roots = {FLT_MAX, FLT_MAX};
+IntersectionRoots App_IntersectRaySphere(Vector3 ray_origin, Vector3 ray_direction, Object sphere_object) { // Renamed origin, direction, sphere
+    IntersectionRoots intersection_t_values = {FLT_MAX, FLT_MAX}; // Renamed roots
 
-    Vector3 oc = Vector3_Subtract(origin, sphere.position);
+    // Vector from ray origin to sphere center
+    Vector3 origin_to_sphere_center = Vector3_Subtract(ray_origin, sphere_object.position); // Renamed oc
 
     // Quadratic equation coefficients: at^2 + bt + c = 0
-    float a = Vector3_Dot(direction, direction); // Equivalent to |ray_direction|^2
-    float b = 2.0f * Vector3_Dot(oc, direction);
-    float c = Vector3_Dot(oc, oc) - sphere.data.sphereData.radius * sphere.data.sphereData.radius;
+    float a_coeff = Vector3_Dot(ray_direction, ray_direction); // Renamed a
+    float b_coeff = 2.0f * Vector3_Dot(origin_to_sphere_center, ray_direction); // Renamed b
+    float c_coeff = Vector3_Dot(origin_to_sphere_center, origin_to_sphere_center) - sphere_object.data.sphereData.radius * sphere_object.data.sphereData.radius; // Renamed c
 
-    float discriminant = b * b - 4 * a * c;
+    float discriminant = b_coeff * b_coeff - 4 * a_coeff * c_coeff;
 
     if (discriminant < 0) {
         // No real solutions, ray misses the sphere
-        return roots;
+        return intersection_t_values;
     }
 
     // Calculate the two possible 't' values
-    roots.root1 = (-b - sqrtf(discriminant)) / (2.0f * a);
-    roots.root2 = (-b + sqrtf(discriminant)) / (2.0f * a);
+    intersection_t_values.root1 = (-b_coeff - sqrtf(discriminant)) / (2.0f * a_coeff);
+    intersection_t_values.root2 = (-b_coeff + sqrtf(discriminant)) / (2.0f * a_coeff);
 
-    return roots;
+    return intersection_t_values;
 }
 
-Color App_TraceRay(App* app, Vector3 direction, float min_t, float max_t) {
-    float closest_t = FLT_MAX;
-    Object* closest_sphere = NULL;
+Color App_TraceRay(App* app, Vector3 ray_direction, float t_min, float t_max) { // Renamed direction, min_t, max_t
+    float closest_t_intersection = FLT_MAX; // Renamed closest_t
+    Object* hit_object = NULL; // Renamed closest_sphere
 
     for (int i = 0; i < app->scene->object_list->count; i++) {
-        IntersectionRoots roots = App_IntersectRaySphere(app->camera.position, direction, app->scene->object_list->objects[i]);
+        Object current_object = app->scene->object_list->objects[i]; // Renamed to clearly identify current object
+        IntersectionRoots current_roots = App_IntersectRaySphere(app->camera.position, ray_direction, current_object); // Renamed roots
         
-        if (roots.root1 < closest_t && min_t < roots.root1 && roots.root1 < max_t) {
-            closest_t = roots.root1;
-            closest_sphere = &(app->scene->object_list->objects[i]);
+        // Check if root1 is a valid intersection
+        if (current_roots.root1 < closest_t_intersection && t_min < current_roots.root1 && current_roots.root1 < t_max) {
+            closest_t_intersection = current_roots.root1;
+            hit_object = &(app->scene->object_list->objects[i]);
         }
-        if (roots.root2 < closest_t && min_t < roots.root2 && roots.root2 < max_t) {
-            closest_t = roots.root2;
-            closest_sphere = &(app->scene->object_list->objects[i]);
+        // Check if root2 is a valid intersection (and closer than root1 if root1 was valid)
+        if (current_roots.root2 < closest_t_intersection && t_min < current_roots.root2 && current_roots.root2 < t_max) {
+            closest_t_intersection = current_roots.root2;
+            hit_object = &(app->scene->object_list->objects[i]);
         }
     }   
 
-    if (closest_sphere == NULL) {
-        return app->background_color;
+    if (hit_object == NULL) {
+        return app->background_color; // Ray didn't hit any object
     }
 
-    Vector3 point = Vector3_Add(app->camera.position, Vector3_Scale(direction, closest_t));
-    Vector3 normal = Vector3_Subtract(point, closest_sphere->position);
+    // Calculate the exact 3D point where the ray hit the object
+    Vector3 intersection_point = Vector3_Add(app->camera.position, Vector3_Scale(ray_direction, closest_t_intersection)); // Renamed point
+    
+    // Calculate the surface normal at the intersection point
+    Vector3 surface_normal = Vector3_Subtract(intersection_point, hit_object->position); // Renamed normal
 
-    float intensity = App_ComputeLightning(app, point, normal);
+    // Compute the total light intensity at the intersection point
+    float light_intensity = App_ComputeLightning(app, intersection_point, surface_normal); // Renamed intensity
 
+    // Return the object's color multiplied by the calculated light intensity
     return Color_New(
-        closest_sphere->color.r * intensity,
-        closest_sphere->color.g * intensity,
-        closest_sphere->color.b * intensity,
-        closest_sphere->color.a
+        hit_object->color.r * light_intensity,
+        hit_object->color.g * light_intensity,
+        hit_object->color.b * light_intensity,
+        hit_object->color.a
     );
 }
 
-float App_ComputeLightning(App* app, Vector3 point, Vector3 normal) {
-    float intensity = 0;
-    Vector3 normalized_normal = Vector3_Normalize(normal);
-    float length_normal = Vector3_Magnitude(normalized_normal);
+float App_ComputeLightning(App* app, Vector3 surface_point, Vector3 surface_normal) { // Renamed point, normal
+    float total_intensity = 0; // Renamed intensity
+    
+    // Normalize the surface normal once, as it's used repeatedly
+    Vector3 normalized_surface_normal = Vector3_Normalize(surface_normal); 
 
-    Vector3 l;
+    Vector3 light_direction_vector; // Renamed 'l' to be more descriptive
 
     for (int i = 0; i < app->scene->light_list->count; i++) {
-        Light light = app->scene->light_list->lights[i];
+        Light current_light = app->scene->light_list->lights[i]; // Renamed 'light' to 'current_light'
 
-        switch (light.type) {
+        switch (current_light.type) {
             case LIGHT_TYPE_AMBIENT:
-                intensity += light.intensity;
+                total_intensity += current_light.intensity;
                 break;
             case LIGHT_TYPE_POINT:
-                l = Vector3_Subtract(light.data.pointData.position, point);
+                // Direction from the surface point towards the point light source
+                light_direction_vector = Vector3_Subtract(current_light.data.pointData.position, surface_point);
                 break;
             case LIGHT_TYPE_DIRECTIONAL:
-                l = light.data.directionalData.direction;
+                // Direction of the parallel rays for a directional light
+                light_direction_vector = current_light.data.directionalData.direction;
                 break;  
             default:
-                printf("  Unknown Object Type\n");
+                printf("  Unknown Light Type encountered in App_ComputeLightning\n");
                 break;
         }
-        float n_dot_l = Vector3_Dot(normalized_normal, l);
-        if (n_dot_l > 0) {
-            intensity += light.intensity * n_dot_l / (length_normal * Vector3_Magnitude(l));
+        
+        // For point and directional lights, calculate diffuse contribution
+        // We normalize the light_direction_vector here before the dot product
+        // This makes the dot product directly represent cos(theta)
+        float normal_dot_light_direction = Vector3_Dot(normalized_surface_normal, Vector3_Normalize(light_direction_vector)); // Renamed n_dot_l
+        
+        // Only add diffuse light if the light source is on the "front" side of the surface
+        if (normal_dot_light_direction > 0) {
+            total_intensity += current_light.intensity * normal_dot_light_direction; // Simplified due to prior normalization of light_direction_vector
         }
     }
-    return intensity;
+    return total_intensity;
 }

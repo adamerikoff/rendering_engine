@@ -5,25 +5,29 @@ int application_init(Application* app, Canvas* canvas) {
     // Ensure app and canvas are not NULL
     if (app == NULL || canvas == NULL) {
         fprintf(stderr, "Error: application_init received NULL pointer for app or canvas.\n");
-        return 1;
+        return 1; // Indicate failure
     }
 
     // Assign the canvas to the application struct
     app->canvas = canvas;
 
-    // Initialize members to NULL or default values
+    // CRUCIAL: Initialize all resource pointers to NULL.
+    // This allows application_clean_up to safely check which resources need cleanup.
     app->window = NULL;
     app->engine = NULL;
-    app->scene = NULL;  // Initialize scene to NULL
-    app->camera = NULL; // Initialize camera to NULL
+    app->scene = NULL;
+    app->camera = NULL;
     app->is_running = 0; // Not running yet
 
+    printf("Initializing SDL...\n");
     // Initialize SDL video subsystem
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         fprintf(stderr, "SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
-        return 1; // Indicate failure
+        application_clean_up(app); // Call cleanup on failure
+        return 1;
     }
 
+    printf("Creating window...\n");
     // Create a window
     app->window = SDL_CreateWindow(
         "Simple SDL Window with Renderer", // window title
@@ -36,70 +40,63 @@ int application_init(Application* app, Canvas* canvas) {
 
     if (app->window == NULL) {
         fprintf(stderr, "Window could not be created! SDL_Error: %s\n", SDL_GetError());
-        SDL_Quit(); // Clean up SDL if window creation fails
-        return 1;   // Indicate failure
+        application_clean_up(app); // Call cleanup on failure
+        return 1;
     }
 
+    printf("Allocating engine...\n");
     // Allocate memory for the RenderEngine struct
     app->engine = (Engine*)malloc(sizeof(Engine));
     if (app->engine == NULL) {
         fprintf(stderr, "Failed to allocate memory for RenderEngine.\n");
-        SDL_DestroyWindow(app->window); // Destroy window if allocation fails
-        SDL_Quit();
+        application_clean_up(app); // Call cleanup on failure
         return 1;
     }
     // Initialize the allocated RenderEngine to a known state
-    app->engine->renderer = NULL;
+    app->engine->renderer = NULL; // Initialize sub-members if necessary
 
-    // Initialize the render engine, passing the pointer to the allocated RenderEngine and the window
-    // Assumes render_init is defined elsewhere (e.g., in engine.c)
+    printf("Initializing engine...\n");
+    // Initialize the render engine
     if (engine_init(app->engine, app->window, canvas) != 0) {
         fprintf(stderr, "Failed to initialize render engine.\n");
-        // Clean up already allocated memory and SDL resources
-        free(app->engine);
-        app->engine = NULL; // Clear pointer
-        SDL_DestroyWindow(app->window);
-        app->window = NULL; // Clear pointer
-        SDL_Quit();
-        return 1; // Indicate failure
-    }
-
-    // Allocate and initialize scene
-    app->scene = (Scene*)malloc(sizeof(Scene));
-    if(scene_init(app->scene) != 0) {
-        fprintf(stderr, "Failed to initialize scene.\n");
-        // Clean up already initialized SDL and engine resources
-        engine_clean_up(app->engine);
-        free(app->engine);
-        app->engine = NULL;
-        SDL_DestroyWindow(app->window);
-        app->window = NULL;
-        SDL_Quit();
+        application_clean_up(app); // Call cleanup on failure
         return 1;
     }
 
-    // Allocate and initialize camera
+    printf("Allocating scene...\n");
+    // Allocate memory for scene
+    app->scene = (Scene*)malloc(sizeof(Scene));
+    if (app->scene == NULL) {
+        fprintf(stderr, "Failed to allocate memory for Scene.\n");
+        application_clean_up(app); // Call cleanup on failure
+        return 1;
+    }
+
+    printf("Initializing scene...\n");
+    // Initialize scene
+    if (scene_init(app->scene) != 0) {
+        fprintf(stderr, "Failed to initialize scene.\n");
+        application_clean_up(app); // Call cleanup on failure
+        return 1;
+    }
+
+    printf("Allocating camera...\n");
+    // Allocate memory for camera
     app->camera = (Camera*)malloc(sizeof(Camera));
     if (app->camera == NULL) {
         fprintf(stderr, "Failed to allocate memory for camera.\n");
-        // Clean up scene and other resources before exiting
-        scene_clean_up(app->scene);
-        free(app->scene);
-        app->scene = NULL;
-        engine_clean_up(app->engine);
-        free(app->engine);
-        app->engine = NULL;
-        SDL_DestroyWindow(app->window);
-        app->window = NULL;
-        SDL_Quit();
+        application_clean_up(app); // Call cleanup on failure
         return 1;
     }
-    
-    *app->camera = camera_new(vector3_new(0, 0, 0), 1.0f, 1.0f);
+
+    printf("Creating camera...\n");
+    // Initialize camera struct itself
+    *app->camera = camera_new(vector3_new(0, 0, 0), 1.0f, canvas);
 
     // Set initial application state
     app->is_running = 1; // Application is running
 
+    printf("Application initialized successfully.\n");
     return 0; // Indicate success
 }
 
@@ -152,29 +149,65 @@ void application_loop(Application* app) {
     }
 }
 
-void application_clean_up(Application* app) {
-    // Ensure app is not NULL
-    if (app == NULL) {
-        return;
-    }
-
-    // Clean up the render engine first (if it was allocated)
-    if (app->engine != NULL) {
-        engine_clean_up(app->engine); // Correct call
-        free(app->engine); // Free the memory allocated for the RenderEngine struct
-        app->engine = NULL; // Clear pointer after freeing
-    }
-
-    // Destroy the window
-    if (app->window != NULL) {
-        SDL_DestroyWindow(app->window);
-        app->window = NULL; // Clear pointer after destruction
-    }
-}
-
 void application_exit(Application* app) {
     (void)app;
     // Quit SDL subsystems (must be called after all SDL objects are destroyed)
     // No need to check for app == NULL here, as SDL_Quit is global
     SDL_Quit();
+}
+
+/**
+ * @brief Deallocates all resources held by the Application struct.
+ * This function can be safely called even if some resources are NULL.
+ * It's designed to be idempotent (calling it multiple times doesn't cause issues).
+ * @param app A pointer to the Application struct.
+ */
+void application_clean_up(Application* app) {
+    if (app == NULL) {
+        return; // Nothing to clean up if app is NULL
+    }
+
+    printf("Starting application cleanup...\n");
+
+    // Clean up camera (if dynamically allocated)
+    if (app->camera != NULL) {
+        // If camera_new or a similar function allocated internal memory,
+        // you would call a camera_clean_up(app->camera) function here.
+        // As per your example, it seems *app->camera is assigned a value,
+        // so only the pointer itself needs to be freed.
+        free(app->camera);
+        app->camera = NULL;
+        printf("Camera freed.\n");
+    }
+
+    // Clean up scene (if dynamically allocated)
+    if (app->scene != NULL) {
+        scene_clean_up(app->scene); // Call specific scene cleanup
+        free(app->scene);
+        app->scene = NULL;
+        printf("Scene freed and cleaned up.\n");
+    }
+
+    // Clean up engine (if dynamically allocated)
+    if (app->engine != NULL) {
+        engine_clean_up(app->engine); // Call specific engine cleanup (e.g., destroys renderer)
+        free(app->engine);
+        app->engine = NULL;
+        printf("Engine freed and cleaned up.\n");
+    }
+
+    // Destroy the SDL Window
+    if (app->window != NULL) {
+        SDL_DestroyWindow(app->window);
+        app->window = NULL;
+        printf("SDL Window destroyed.\n");
+    }
+
+    // Quit SDL subsystems
+    // SDL_Quit is safe to call even if SDL_Init failed or was never called,
+    // and multiple calls are harmless.
+    SDL_Quit();
+    printf("SDL subsystems quit.\n");
+
+    printf("Application cleanup complete.\n");
 }

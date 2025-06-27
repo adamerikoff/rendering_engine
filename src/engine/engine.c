@@ -55,9 +55,6 @@ void engine_render(Engine* engine, const Camera* camera, const Scene* scene, con
             // Calculate ray direction from camera through the current pixel on the viewport
             Vector3 ray_direction = canvas_to_viewport(camera, canvas, pixel_x, pixel_y);
 
-            // Normalize the ray direction for accurate intersection tests
-            ray_direction = vector3_normalize(ray_direction);
-
             // Trace the ray to find the color of the pixel
             Color pixel_color = engine_trace_ray(camera, scene, ray_direction, engine->background_color);
 
@@ -100,7 +97,7 @@ void engine_draw_pixel(Engine* engine, const Canvas* canvas, const Color* color,
     } else {
         // This might indicate an issue with coordinate calculation or an oversized viewport
         // For debugging, you might want to print this, but for release, it might be too noisy.
-        // fprintf(stderr, "Warning: Pixel coordinates out of canvas bounds: (%d, %d)\n", sdl_x, sdl_y);
+        fprintf(stderr, "Warning: Pixel coordinates out of canvas bounds: (%d, %d)\n", sdl_x, sdl_y);
     }
 }
 
@@ -153,14 +150,14 @@ Color engine_trace_ray(const Camera* camera, const Scene* scene, Vector3 ray_dir
 
     // Calculate the surface normal at the intersection point.
     // For a sphere, the normal is simply (intersection_point - sphere_center) normalized.
-    Vector3 surface_normal = vector3_subtract(intersection_point, hit_object->position);
-    surface_normal = vector3_normalize(surface_normal); // Ensure normal is normalized
+    Vector3 surface_normal =  vector3_normalize(vector3_subtract(intersection_point, hit_object->position));
 
     // The view direction is the inverse of the ray direction from the camera
     Vector3 view_direction = vector3_scale(ray_direction, -1.0f);
 
     // Compute the total light intensity at the intersection point
-    float light_intensity = render_compute_light(scene->lights, intersection_point, surface_normal, hit_object->specular, view_direction);
+    float light_intensity = 1.0;
+    // float light_intensity = render_compute_light(scene->lights, intersection_point, surface_normal, hit_object->specular, view_direction);
 
     // Return the object's color multiplied by the calculated light intensity
     Color final_color = color_new(
@@ -188,9 +185,6 @@ float render_compute_light(const LightList* lights_list, Vector3 surface_point, 
 
     float total_intensity = 0.0f;
 
-    // Normalize the surface normal once, as it's used repeatedly
-    Vector3 normalized_surface_normal = vector3_normalize(surface_normal);
-
     // Normalize the view vector once
     Vector3 normalized_view_direction = vector3_normalize(view_direction);
 
@@ -209,7 +203,7 @@ float render_compute_light(const LightList* lights_list, Vector3 surface_point, 
                 t_max_shadow = vector3_magnitude(light_direction); // Distance to light source
                 break;
             case LIGHT_TYPE_DIRECTIONAL:
-                light_direction = vector3_scale(current_light->data.directionalData.direction, -1.0f); // Directional light comes from infinite distance
+                light_direction = vector3_scale(current_light->data.directionalData.direction, 1.0f); // Directional light comes from infinite distance
                 t_max_shadow = FLT_MAX;
                 break;
             default:
@@ -220,33 +214,9 @@ float render_compute_light(const LightList* lights_list, Vector3 surface_point, 
         // Normalize light direction
         Vector3 normalized_light_direction = vector3_normalize(light_direction);
 
-        // --- Shadow Check (Optional but highly recommended for realism) ---
-        // To implement shadows, you would cast a ray from `surface_point`
-        // in `normalized_light_direction` and check for intersections with
-        // other objects before `t_max_shadow`. If an intersection occurs,
-        // this light source does not contribute to the illumination.
-        // This is a significant addition, so it's commented out for brevity,
-        // but it's the next logical step for realism.
-        /*
-        bool in_shadow = false;
-        for (int j = 0; j < scene->objects->count; ++j) {
-            const Object* shadow_object = &(scene->objects->objects[j]);
-            IntersectionRoots shadow_roots = render_ray_sphere_intersection(surface_point, normalized_light_direction, *shadow_object);
-
-            if ((shadow_roots.root1 > 0.001f && shadow_roots.root1 < t_max_shadow) ||
-                (shadow_roots.root2 > 0.001f && shadow_roots.root2 < t_max_shadow)) {
-                in_shadow = true;
-                break;
-            }
-        }
-        if (in_shadow) {
-            continue; // Skip lighting calculations if in shadow
-        }
-        */
-
         // --- DIFFUSE LIGHT (Lambertian Reflection) ---
         // N · L (Normal dot Light direction)
-        float diffuse_dot_product = vector3_dot(normalized_surface_normal, normalized_light_direction);
+        float diffuse_dot_product = vector3_dot(surface_normal, normalized_light_direction);
         if (diffuse_dot_product > 0) {
             total_intensity += current_light->intensity * diffuse_dot_product;
         }
@@ -255,7 +225,7 @@ float render_compute_light(const LightList* lights_list, Vector3 surface_point, 
         if (specular_exponent != -1) { // -1 typically indicates no specular component
             // Calculate reflection vector R = 2 * (N · L) * N - L
             Vector3 reflection_vector = vector3_subtract(
-                vector3_scale(normalized_surface_normal, 2.0f * diffuse_dot_product), // Use diffuse_dot_product calculated earlier
+                vector3_scale(surface_normal, 2.0f * diffuse_dot_product), // Use diffuse_dot_product calculated earlier
                 normalized_light_direction
             );
             reflection_vector = vector3_normalize(reflection_vector); // Normalize reflection vector
@@ -281,7 +251,7 @@ float render_compute_light(const LightList* lights_list, Vector3 surface_point, 
 IntersectionRoots render_ray_sphere_intersection(Vector3 ray_origin, Vector3 ray_direction, const Object sphere_object) {
     IntersectionRoots intersection_t_values = {FLT_MAX, FLT_MAX};
 
-    // Vector from ray origin to sphere center: L = O - C
+    // Vector from sphere center to ray origin: L = O - C
     Vector3 origin_to_sphere_center = vector3_subtract(ray_origin, sphere_object.position);
 
     // Quadratic equation coefficients: At^2 + Bt + C = 0

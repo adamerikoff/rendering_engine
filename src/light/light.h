@@ -29,7 +29,6 @@ typedef struct DirectionalLightData {
 typedef struct Light {
     LightType type;
     float intensity;
-
     union {
         PointLightData pointData;
         DirectionalLightData directionalData;

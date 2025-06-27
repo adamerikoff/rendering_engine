@@ -16,8 +16,8 @@ int scene_init(Scene* scene) {
     }
 
     Object sphere1 = object_new_sphere(vector3_new(0.0f, -1.0f, 3.0f), color_new(255.0f, 0.0f, 0.0f), 1.0f, 500);
-    Object sphere2 = object_new_sphere(vector3_new(-2.0f, 0.0f, 4.0f), color_new(0.0f, 255.0f, 0.0f), 1.0f, 10);
-    Object sphere3 = object_new_sphere(vector3_new(2.0f, 0.0f, 4.0f), color_new(0.0f, 0.0f, 255.0f), 1.0f, 500);
+    Object sphere2 = object_new_sphere(vector3_new(-2.0f, 0.0f, 4.0f), color_new(0.0f, 255.0f, 0.0f), 1.0f, 1000);
+    Object sphere3 = object_new_sphere(vector3_new(2.0f, 0.0f, 4.0f), color_new(0.0f, 0.0f, 255.0f), 1.0f, 10);
     Object sphere4 = object_new_sphere(vector3_new(0.0f, -5001.0f, 0.0f), color_new(255.0f, 255.0f, 0.0f), 5000.0f, 1000);
 
     objectList_add(scene->objects, sphere1);

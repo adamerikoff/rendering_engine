@@ -24,7 +24,7 @@ int engine_init(Engine* engine, SDL_Window* window, Canvas* canvas) {
     }
 
     // Set a default background color, can be overridden later
-    engine->background_color = color_new(0, 0, 0); // Black by default
+    engine->background_color = color_new(255.0f, 255.0f, 255.0f); // Black by default
     return 0;
 }
 
@@ -65,40 +65,6 @@ void engine_render(Engine* engine, const Camera* camera, const Scene* scene, con
 
     // Display rendered frame
     SDL_RenderPresent(engine->renderer);
-}
-
-/**
- * @brief Draws a single pixel on the canvas using the engine's renderer.
- * Handles coordinate system conversion from viewport to SDL.
- * @param engine Pointer to the Engine struct.
- * @param canvas Pointer to the Canvas struct.
- * @param color Pointer to the Color of the pixel.
- * @param x X-coordinate in viewport space.
- * @param y Y-coordinate in viewport space.
- */
-void engine_draw_pixel(Engine* engine, const Canvas* canvas, const Color* color, int x, int y) {
-    if (!engine || !canvas || !color) {
-        fprintf(stderr, "Error: NULL pointer passed to engine_draw_pixel.\n");
-        return;
-    }
-
-    // Set the drawing color
-    SDL_SetRenderDrawColor(engine->renderer, color->r, color->g, color->b, 255);
-
-    // Convert viewport coordinates (centered) to SDL screen coordinates (top-left origin)
-    int sdl_x = (canvas->width / 2) + x;
-    // SDL y-coordinates increase downwards, so we invert the viewport y and adjust for 0-indexing
-    int sdl_y = (canvas->height / 2) - y - 1;
-
-    // Perform boundary checks before drawing to prevent out-of-bounds access
-    if (sdl_x >= 0 && sdl_x < canvas->width &&
-        sdl_y >= 0 && sdl_y < canvas->height) {
-        SDL_RenderDrawPoint(engine->renderer, sdl_x, sdl_y);
-    } else {
-        // This might indicate an issue with coordinate calculation or an oversized viewport
-        // For debugging, you might want to print this, but for release, it might be too noisy.
-        fprintf(stderr, "Warning: Pixel coordinates out of canvas bounds: (%d, %d)\n", sdl_x, sdl_y);
-    }
 }
 
 /**
@@ -156,8 +122,7 @@ Color engine_trace_ray(const Camera* camera, const Scene* scene, Vector3 ray_dir
     Vector3 view_direction = vector3_scale(ray_direction, -1.0f);
 
     // Compute the total light intensity at the intersection point
-    float light_intensity = 1.0;
-    // float light_intensity = render_compute_light(scene->lights, intersection_point, surface_normal, hit_object->specular, view_direction);
+    float light_intensity = render_compute_light(scene->lights, intersection_point, surface_normal, hit_object->specular, view_direction);
 
     // Return the object's color multiplied by the calculated light intensity
     Color final_color = color_new(
@@ -188,27 +153,24 @@ float render_compute_light(const LightList* lights_list, Vector3 surface_point, 
     // Normalize the view vector once
     Vector3 normalized_view_direction = vector3_normalize(view_direction);
 
-    for (int i = 0; i < lights_list->count; ++i) {
-        const Light* current_light = &(lights_list->lights[i]); // Use const pointer
+    for (size_t i = 0; i < lights_list->count; ++i) {
+        const Light* current_light = &(lights_list->lights[i]); 
 
         Vector3 light_direction;
-        float t_max_shadow = 1.0f; // For point lights, distance to light; for directional, FLT_MAX
 
         switch (current_light->type) {
             case LIGHT_TYPE_AMBIENT:
                 total_intensity += current_light->intensity;
-                continue; // Ambient light doesn't cast shadows or have direction
+                continue;
             case LIGHT_TYPE_POINT:
                 light_direction = vector3_subtract(current_light->data.pointData.position, surface_point);
-                t_max_shadow = vector3_magnitude(light_direction); // Distance to light source
                 break;
             case LIGHT_TYPE_DIRECTIONAL:
-                light_direction = vector3_scale(current_light->data.directionalData.direction, 1.0f); // Directional light comes from infinite distance
-                t_max_shadow = FLT_MAX;
+                light_direction = vector3_scale(current_light->data.directionalData.direction, 1.0f);
                 break;
             default:
                 fprintf(stderr, "Warning: Unknown Light Type encountered in render_compute_light.\n");
-                continue;
+                continue;;
         }
 
         // Normalize light direction
@@ -217,19 +179,19 @@ float render_compute_light(const LightList* lights_list, Vector3 surface_point, 
         // --- DIFFUSE LIGHT (Lambertian Reflection) ---
         // N · L (Normal dot Light direction)
         float diffuse_dot_product = vector3_dot(surface_normal, normalized_light_direction);
+        diffuse_dot_product = diffuse_dot_product / vector3_magnitude(surface_normal) * vector3_magnitude(normalized_light_direction);
+
         if (diffuse_dot_product > 0) {
             total_intensity += current_light->intensity * diffuse_dot_product;
         }
 
         // --- SPECULAR LIGHT (Phong Reflection Model) ---
-        if (specular_exponent != -1) { // -1 typically indicates no specular component
+        if (specular_exponent > 0) {
             // Calculate reflection vector R = 2 * (N · L) * N - L
             Vector3 reflection_vector = vector3_subtract(
-                vector3_scale(surface_normal, 2.0f * diffuse_dot_product), // Use diffuse_dot_product calculated earlier
-                normalized_light_direction
+                vector3_scale(surface_normal, 2.0f * diffuse_dot_product), normalized_light_direction
             );
-            reflection_vector = vector3_normalize(reflection_vector); // Normalize reflection vector
-
+            reflection_vector = vector3_normalize(reflection_vector);
             // Compute R · V (Reflection dot View)
             float reflection_dot_view = vector3_dot(reflection_vector, normalized_view_direction);
             if (reflection_dot_view > 0) {
@@ -237,7 +199,8 @@ float render_compute_light(const LightList* lights_list, Vector3 surface_point, 
             }
         }
     }
-    return total_intensity;
+
+    return fminf(total_intensity, 1.0f); 
 }
 
 /**
@@ -287,6 +250,39 @@ IntersectionRoots render_ray_sphere_intersection(Vector3 ray_origin, Vector3 ray
     return intersection_t_values;
 }
 
+/**
+ * @brief Draws a single pixel on the canvas using the engine's renderer.
+ * Handles coordinate system conversion from viewport to SDL.
+ * @param engine Pointer to the Engine struct.
+ * @param canvas Pointer to the Canvas struct.
+ * @param color Pointer to the Color of the pixel.
+ * @param x X-coordinate in viewport space.
+ * @param y Y-coordinate in viewport space.
+ */
+void engine_draw_pixel(Engine* engine, const Canvas* canvas, const Color* color, int x, int y) {
+    if (!engine || !canvas || !color) {
+        fprintf(stderr, "Error: NULL pointer passed to engine_draw_pixel.\n");
+        return;
+    }
+
+    // Set the drawing color
+    SDL_SetRenderDrawColor(engine->renderer, color->r, color->g, color->b, 255);
+
+    // Convert viewport coordinates (centered) to SDL screen coordinates (top-left origin)
+    int sdl_x = (canvas->width / 2) + x;
+    // SDL y-coordinates increase downwards, so we invert the viewport y and adjust for 0-indexing
+    int sdl_y = (canvas->height / 2) - y - 1;
+
+    // Perform boundary checks before drawing to prevent out-of-bounds access
+    if (sdl_x >= 0 && sdl_x < canvas->width &&
+        sdl_y >= 0 && sdl_y < canvas->height) {
+        SDL_RenderDrawPoint(engine->renderer, sdl_x, sdl_y);
+    } else {
+        // This might indicate an issue with coordinate calculation or an oversized viewport
+        // For debugging, you might want to print this, but for release, it might be too noisy.
+        fprintf(stderr, "Warning: Pixel coordinates out of canvas bounds: (%d, %d)\n", sdl_x, sdl_y);
+    }
+}
 
 /**
  * @brief Cleans up resources used by the engine.

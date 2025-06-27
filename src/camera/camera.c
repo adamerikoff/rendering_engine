@@ -28,6 +28,6 @@ Vector3 canvas_to_viewport(const Camera* camera, const Canvas* canvas, int x, in
 
     float vp_x = x * camera->viewport.width / canvas->width;
     float vp_y = y * camera->viewport.height / canvas->height;
-    
+
     return vector3_new(vp_x, vp_y, camera->viewport.projection_plane_z);
 }

@@ -14,17 +14,19 @@ This project was completed heavily utilizing the concepts and principles laid ou
 }
 
 ```
+
 The book served as an invaluable guide for understanding the core algorithms and mathematical concepts behind ray tracing.
 
 ## Table of Contents
-* [Features](#features)
-* [Preview](#preview)
-* [How to Build and Run](#how-to-build-and-run)
-* [Usage](#usage)
-* [License](#license)
 
+  * [Features](https://www.google.com/search?q=%23features)
+  * [Preview](https://www.google.com/search?q=%23preview)
+  * [How to Build and Run](https://www.google.com/search?q=%23how-to-build-and-run)
+  * [Usage](https://www.google.com/search?q=%23usage)
+  * [License](https://www.google.com/search?q=%23license)
 
 ## Features
+
   * **Ray Tracing Core:** Implements the fundamental ray tracing algorithm to determine pixel colors based on ray-object intersections.
   * **Sphere Primitives:** Renders spherical objects within the scene.
   * **Basic Lighting:** Supports ambient, point, and directional lights.
@@ -36,11 +38,11 @@ The book served as an invaluable guide for understanding the core algorithms and
       * **Arrow Keys:** Rotate the camera's view (yaw for left/right, pitch for up/down).
 
 ## Preview
+
 <img src="./preview.png" width="400px"/>
 
-
-
 ## How to Build and Run
+
 This project requires `SDL2`. Ensure you have it installed on your system.
 
 1.  **Clone the repository:**
@@ -52,23 +54,41 @@ This project requires `SDL2`. Ensure you have it installed on your system.
 
 2.  **Compile:**
     This project uses a `Makefile` for compilation. Ensure `pkg-config` is installed and configured correctly for SDL2.
+    To build the Ray Casting Engine (as described in the Features section):
 
     ```bash
-    make
+    make build_ray
     ```
 
-    The `Makefile` will automatically handle compiling source files and linking with SDL2 using `pkg-config`.
+    If you intend to build the Rasterizing Engine:
+
+    ```bash
+    make build_raster
+    ```
 
 3.  **Run:**
+    To run the Ray Casting Engine:
 
     ```bash
-    ./bin/raytracer_app
+    ./bin/ray_casting_engine
     ```
 
-    Or, if you use the `Makefile`:
+    Or, using the `Makefile` target:
 
     ```bash
-    make run
+    make run_ray
+    ```
+
+    To run the Rasterizing Engine (if you built it):
+
+    ```bash
+    ./bin/rasterizing_engine
+    ```
+
+    Or, using the `Makefile` target:
+
+    ```bash
+    make run_raster
     ```
 
 ## Usage
@@ -90,7 +110,6 @@ Once the application is running, you can interact with the camera:
   * **Exit:**
       * `ESC`: Exit the application.
       * Close the window.
-
 
 ## License
 

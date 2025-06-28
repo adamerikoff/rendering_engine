@@ -1,12 +1,13 @@
 #include "./object.h"
 
-Object object_new_sphere(Vector3 center, Color color, float radius, int specular) {
+Object object_new_sphere(Vector3 center, Color color, float radius, int specularity, float reflectivity) {
     Object obj;
     obj.type = OBJECT_TYPE_SPHERE;
     obj.position = center;
     obj.color = color;
-    obj.specular = specular;
+    obj.specularity = specularity;
     obj.data.sphereData.radius = radius;
+    obj.reflectivity = reflectivity;
     return obj;
 }
 

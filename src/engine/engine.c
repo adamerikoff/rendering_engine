@@ -1,5 +1,7 @@
 #include "./engine.h"
 
+#define EPSILON 0.05f
+
 // Assuming canvas_to_viewport, vector3_add, vector3_scale, vector3_subtract,
 // vector3_normalize, vector3_dot, color_new are defined in their respective headers.
 
@@ -54,7 +56,7 @@ void engine_render(Engine* engine, const Camera* camera, const Scene* scene, con
             Vector3 ray_direction = canvas_to_viewport(camera, canvas, pixel_x, pixel_y);
 
             // Trace the ray to find the color of the pixel
-            Color pixel_color = engine_trace_ray(camera, scene, ray_direction);
+            Color pixel_color = engine_trace_ray(camera->position, scene, ray_direction, 3, EPSILON, FLT_MAX);
 
             // Draw the computed color at the pixel location
             engine_draw_pixel(engine, canvas, &pixel_color, pixel_x, pixel_y);
@@ -65,6 +67,15 @@ void engine_render(Engine* engine, const Camera* camera, const Scene* scene, con
     SDL_RenderPresent(engine->renderer);
 }
 
+
+Vector3 engine_reflect_ray(Vector3 ray_direction, Vector3 normal) {
+    // R = I - 2(N·I)N
+    return vector3_subtract(
+        vector3_scale(normal, 2.0f * vector3_dot(ray_direction, normal)),
+        ray_direction
+    );
+}
+
 /**
  * @brief Traces a ray into the scene to determine the color of the intersected object.
  * @param camera Pointer to the Camera from which the ray originates.
@@ -73,24 +84,20 @@ void engine_render(Engine* engine, const Camera* camera, const Scene* scene, con
  * @param background_color The color to return if no object is hit.
  * @return The computed color of the pixel.
  */
-Color engine_trace_ray(const Camera* camera, const Scene* scene, Vector3 ray_direction) {
-    if (!camera || !scene) {
-        fprintf(stderr, "Error: NULL camera or scene passed to engine_trace_ray.\n");
+Color engine_trace_ray(Vector3 origin, const Scene* scene, Vector3 ray_direction, int recursion_depth, float t_min, float t_max) {
+    if (!scene) {
+        fprintf(stderr, "Error: NULL scene passed to engine_trace_ray.\n");
         return scene->background_color; // Return background color on error
     }
 
-    // Minimum and maximum 't' values for valid intersections
-    const float t_min = 0.001f; // Avoid self-intersection issues (epsilon)
-    const float t_max = FLT_MAX;
-
-    ClosestIntersection closest_intersection = engine_calculate_closest_intersection(scene->objects, camera->position, ray_direction, t_min, t_max);
+    ClosestIntersection closest_intersection = engine_calculate_closest_intersection(scene->objects, origin, ray_direction, t_min, t_max);
 
     if (closest_intersection.closest_object == NULL) {
         return scene->background_color;
     }
 
     // Calculate the exact 3D point where the ray hit the object
-    Vector3 intersection_point = vector3_add(camera->position, vector3_scale(ray_direction, closest_intersection.closest_t));
+    Vector3 intersection_point = vector3_add(origin, vector3_scale(ray_direction, closest_intersection.closest_t));
 
     // Calculate the surface normal at the intersection point.
     // For a sphere, the normal is simply (intersection_point - sphere_center) normalized.
@@ -100,15 +107,28 @@ Color engine_trace_ray(const Camera* camera, const Scene* scene, Vector3 ray_dir
     Vector3 view_direction = vector3_scale(ray_direction, -1.0f);
 
     // Compute the total light intensity at the intersection point
-    float light_intensity = engine_compute_light(scene, intersection_point, surface_normal, closest_intersection.closest_object->specular, view_direction);
+    float light_intensity = engine_compute_light(scene, intersection_point, surface_normal, closest_intersection.closest_object->specularity, view_direction);
 
     // Return the object's color multiplied by the calculated light intensity
-    Color final_color = color_new(
+    Color local_color = color_new(
         (unsigned char)(closest_intersection.closest_object->color.r * light_intensity),
         (unsigned char)(closest_intersection.closest_object->color.g * light_intensity),
         (unsigned char)(closest_intersection.closest_object->color.b * light_intensity)
     );
-    return final_color;
+
+    if (recursion_depth <= 0 || closest_intersection.closest_object->reflectivity <= 0) {
+        return local_color;
+    }
+
+    Vector3 reflected_ray = engine_reflect_ray(view_direction, surface_normal);
+
+    Color reflected_color = engine_trace_ray(intersection_point, scene, reflected_ray, recursion_depth - 1, EPSILON, FLT_MAX);
+
+    return color_new(
+        (local_color.r * (1 - closest_intersection.closest_object->reflectivity)) + (reflected_color.r * closest_intersection.closest_object->reflectivity),
+        (local_color.g * (1 - closest_intersection.closest_object->reflectivity)) + (reflected_color.g * closest_intersection.closest_object->reflectivity),
+        (local_color.b * (1 - closest_intersection.closest_object->reflectivity)) + (reflected_color.b * closest_intersection.closest_object->reflectivity)
+    );
 }
 
 /**
@@ -129,7 +149,6 @@ float engine_compute_light(const Scene* scene, Vector3 surface_point, Vector3 su
     float total_intensity = 0.0f;
     float t_max = 0.0;
 
-    // Normalize the view vector once
     Vector3 normalized_view_direction = vector3_normalize(view_direction);
 
     for (size_t i = 0; i < scene->lights->count; ++i) {
@@ -143,7 +162,7 @@ float engine_compute_light(const Scene* scene, Vector3 surface_point, Vector3 su
                 continue;
             case LIGHT_TYPE_POINT:
                 light_direction = vector3_subtract(current_light->data.pointData.position, surface_point);
-                t_max = 1.0f;
+                t_max = vector3_magnitude(light_direction);
                 break;
             case LIGHT_TYPE_DIRECTIONAL:
                 light_direction = vector3_scale(current_light->data.directionalData.direction, 1.0f);
@@ -157,7 +176,7 @@ float engine_compute_light(const Scene* scene, Vector3 surface_point, Vector3 su
         // Normalize light direction
         Vector3 normalized_light_direction = vector3_normalize(light_direction);
 
-        ClosestIntersection closest_intersection = engine_calculate_closest_intersection(scene->objects, surface_point, light_direction, 0.001, t_max);
+        ClosestIntersection closest_intersection = engine_calculate_closest_intersection(scene->objects, surface_point, normalized_light_direction, EPSILON, t_max);
 
         if (closest_intersection.closest_object != NULL) {
             continue;
@@ -166,7 +185,6 @@ float engine_compute_light(const Scene* scene, Vector3 surface_point, Vector3 su
         // --- DIFFUSE LIGHT (Lambertian Reflection) ---
         // N · L (Normal dot Light direction)
         float diffuse_dot_product = vector3_dot(surface_normal, normalized_light_direction);
-        diffuse_dot_product = diffuse_dot_product / vector3_magnitude(surface_normal) * vector3_magnitude(normalized_light_direction);
 
         if (diffuse_dot_product > 0) {
             total_intensity += current_light->intensity * diffuse_dot_product;
@@ -187,14 +205,14 @@ float engine_compute_light(const Scene* scene, Vector3 surface_point, Vector3 su
         }
     }
 
-    return fminf(total_intensity, 1.0f); 
+    return fmin(total_intensity, 1.0f); 
 }
 
 ClosestIntersection engine_calculate_closest_intersection(ObjectList* objects, Vector3 ray_origin, Vector3 ray_direction, float t_min, float t_max) {
     ClosestIntersection closest_intersection = { NULL, FLT_MAX};
 
     for (int i = 0; i < objects->count; ++i) {
-        const Object* current_object = &(objects->objects[i]);
+        Object* current_object = &(objects->objects[i]);
         IntersectionRoots roots = engine_ray_sphere_intersection(ray_origin, ray_direction, *current_object);
 
         // Check if root1 is a valid intersection and closer than previous

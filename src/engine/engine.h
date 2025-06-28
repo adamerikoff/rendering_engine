@@ -82,7 +82,7 @@ void engine_clean_up(Engine* engine);
  * @param background_color The color to return if no object is hit.
  * @return The computed color of the pixel.
  */
-Color engine_trace_ray(const Camera* camera, const Scene* scene, Vector3 ray_direction);
+Color engine_trace_ray(Vector3 origin, const Scene* scene, Vector3 ray_direction, int recursion_depth, float t_min, float t_max);
 
 /**
  * @brief Computes the total light intensity at a given surface point.
@@ -106,5 +106,7 @@ float engine_compute_light(const Scene* scene, Vector3 surface_point, Vector3 su
 IntersectionRoots engine_ray_sphere_intersection(Vector3 ray_origin, Vector3 ray_direction, const Object sphere_object);
 
 ClosestIntersection engine_calculate_closest_intersection(ObjectList* objects, Vector3 ray_origin, Vector3 ray_direction, float t_min, float t_max);
+
+Vector3 engine_reflect_ray(Vector3 ray_direction, Vector3 surface_normal);
 
 #endif // ENGINE_H

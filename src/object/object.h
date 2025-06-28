@@ -20,7 +20,8 @@ typedef struct Object {
     ObjectType type;
     Vector3 position;
     Color color;
-    int specular;
+    int specularity;
+    float reflectivity;
 
     union {
         SphereObjectData sphereData;
@@ -33,7 +34,7 @@ typedef struct ObjectList {
     int count;
 } ObjectList;
 
-Object object_new_sphere(Vector3 center, Color color, float radius, int specular);
+Object object_new_sphere(Vector3 center, Color color, float radius, int specularity, float reflectivity);
 
 int objectList_init(ObjectList* objectList);
 int objectList_add(ObjectList* list, Object obj);

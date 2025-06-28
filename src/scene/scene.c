@@ -15,10 +15,10 @@ int scene_init(Scene* scene) {
         return -1;
     }
 
-    Object sphere1 = object_new_sphere(vector3_new(0.0f, -1.0f, 3.0f), color_new(255.0f, 0.0f, 0.0f), 1.0f, 500);
-    Object sphere2 = object_new_sphere(vector3_new(-2.0f, 0.0f, 4.0f), color_new(0.0f, 255.0f, 0.0f), 1.0f, 1000);
-    Object sphere3 = object_new_sphere(vector3_new(2.0f, 0.0f, 4.0f), color_new(0.0f, 0.0f, 255.0f), 1.0f, 10);
-    Object sphere4 = object_new_sphere(vector3_new(0.0f, -5001.0f, 0.0f), color_new(255.0f, 255.0f, 0.0f), 5000.0f, 1000);
+    Object sphere1 = object_new_sphere(vector3_new(0.0f, -1.0f, 3.0f), color_new(255.0f, 0.0f, 0.0f), 1.0f, 500, 0.2f);
+    Object sphere2 = object_new_sphere(vector3_new(-2.0f, 0.0f, 4.0f), color_new(0.0f, 255.0f, 0.0f), 1.0f, 1000, 0.4f);
+    Object sphere3 = object_new_sphere(vector3_new(2.0f, 0.0f, 4.0f), color_new(0.0f, 0.0f, 255.0f), 1.0f, 10, 0.3f);
+    Object sphere4 = object_new_sphere(vector3_new(0.0f, -5001.0f, 0.0f), color_new(255.0f, 255.0f, 0.0f), 5000.0f, 1000, 0.5f);
 
     objectList_add(scene->objects, sphere1);
     objectList_add(scene->objects, sphere2);
@@ -47,7 +47,7 @@ int scene_init(Scene* scene) {
     lightList_add(scene->lights, light2);
     lightList_add(scene->lights, light3);
 
-    scene->background_color = color_new(255.0f, 255.0f, 255.0f);
+    scene->background_color = color_new(0.0f, 0.0f, 0.0f);
 
     return 0;
 }

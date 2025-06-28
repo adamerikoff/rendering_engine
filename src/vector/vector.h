@@ -17,6 +17,7 @@ Vector3 vector3_subtract(Vector3 a, Vector3 b);
 Vector3 vector3_scale(Vector3 vec, float scalar);
 Vector3 vector3_cross(Vector3 a, Vector3 b);
 Vector3 vector3_normalize(Vector3 vec);
+Vector3 vector3_multiply(Vector3 a, Vector3 b);
 float vector3_dot(Vector3 a, Vector3 b);
 float vector3_magnitude_sq(Vector3 vec);
 float vector3_magnitude(Vector3 vec);

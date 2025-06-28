@@ -110,7 +110,7 @@ void application_loop(Application* app) {
     SDL_Event e;
 
     // --- Optimization: Frame Rate Control ---
-    const int FPS = 30; // Desired frames per second
+    const int FPS = 5; // Desired frames per second
     const int frameDelay = 1000 / FPS; // Milliseconds per frame
 
     Uint32 frameStart;
@@ -127,10 +127,52 @@ void application_loop(Application* app) {
                 app->is_running = 0; // Set flag to exit main loop
             }
             // Keyboard event handling
+            // Keyboard event handling
             else if (e.type == SDL_KEYDOWN) {
                 // Check if the pressed key is ESC
                 if (e.key.keysym.sym == SDLK_ESCAPE) {
                     app->is_running = 0; // Set flag to exit main loop
+                }
+                // Check for WASD keys
+                else if (e.key.keysym.sym == SDLK_w) {
+                    app->camera->position.z += 0.1; 
+                }
+                else if (e.key.keysym.sym == SDLK_s) {
+                    app->camera->position.z -= 0.1;
+                }
+                else if (e.key.keysym.sym == SDLK_a) {
+                    app->camera->position.x += 0.1;
+                }
+                else if (e.key.keysym.sym == SDLK_d) {
+                    app->camera->position.x -= 0.1;
+                }
+                // Check for Space key and C
+                else if (e.key.keysym.sym == SDLK_SPACE) {
+                    app->camera->position.y += 0.1;
+                }
+                else if (e.key.keysym.sym == SDLK_c) {
+                    app->camera->position.y -= 0.1;
+                }
+                // Check for Arrow keys
+                else if (e.key.keysym.sym == SDLK_LEFT) {
+                    app->camera->yaw += 0.1; // Rotate left (increase yaw)
+                    camera_update_vectors(app->camera); // Recalculate camera basis vectors
+                }
+                else if (e.key.keysym.sym == SDLK_RIGHT) {
+                    app->camera->yaw -= 0.1; // Rotate right (decrease yaw)
+                    camera_update_vectors(app->camera); // Recalculate camera basis vectors
+                }
+                else if (e.key.keysym.sym == SDLK_UP) {
+                    app->camera->pitch += 0.1; // Look up (increase pitch)
+                    // Clamp pitch to prevent camera flipping upside down (e.g., between -PI/2 and PI/2)
+                    if (app->camera->pitch > M_PI_2 - 0.01f) app->camera->pitch = M_PI_2 - 0.01f;
+                    camera_update_vectors(app->camera); // Recalculate camera basis vectors
+                }
+                else if (e.key.keysym.sym == SDLK_DOWN) {
+                    app->camera->pitch -= 0.1; // Look down (decrease pitch)
+                    // Clamp pitch to prevent camera flipping upside down
+                    if (app->camera->pitch < -M_PI_2 + 0.01f) app->camera->pitch = -M_PI_2 + 0.01f;
+                    camera_update_vectors(app->camera); // Recalculate camera basis vectors
                 }
             }
         }

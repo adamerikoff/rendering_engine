@@ -76,3 +76,11 @@ float vector3_magnitude_sq(Vector3 vec) {
 float vector3_magnitude(Vector3 vec) {
     return sqrtf(vector3_magnitude_sq(vec)); // Using sqrtf for float precision
 }
+
+Vector3 vector3_multiply(Vector3 a, Vector3 b) {
+    return vector3_new(
+        a.x * b.x,
+        a.y * b.y,
+        a.z * b.z
+    );
+}

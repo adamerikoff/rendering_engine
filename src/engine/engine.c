@@ -52,8 +52,23 @@ void engine_render(Engine* engine, const Camera* camera, const Scene* scene, con
     // Iterate over each pixel in the canvas (viewport coordinates)
     for (int pixel_x = -canvas_half_width; pixel_x < canvas_half_width; ++pixel_x) {
         for (int pixel_y = -canvas_half_height; pixel_y < canvas_half_height; ++pixel_y) {
-            // Calculate ray direction from camera through the current pixel on the viewport
-            Vector3 ray_direction = canvas_to_viewport(camera, canvas, pixel_x, pixel_y);
+
+            // Step 1: Calculate ray direction in the camera's LOCAL space
+            // This vector goes from (0,0,0) in camera local space to a point on the viewport plane.
+            Vector3 viewport_local_coords = canvas_to_viewport(camera, canvas, pixel_x, pixel_y);
+
+            // Step 2: Transform the local ray direction into WORLD space
+            // The ray's direction in world space is a linear combination of the
+            // camera's world-space right, up, and forward (direction) vectors,
+            // scaled by the x, y, and z components of the viewport_local_coords.
+            Vector3 ray_direction = vector3_add(
+                vector3_scale(camera->right, viewport_local_coords.x),
+                vector3_add(
+                    vector3_scale(camera->up, viewport_local_coords.y),
+                    vector3_scale(camera->forward, viewport_local_coords.z)
+                )
+            );
+            ray_direction = vector3_normalize(ray_direction); // Normalize the final world-space ray direction
 
             // Trace the ray to find the color of the pixel
             Color pixel_color = engine_trace_ray(camera->position, scene, ray_direction, 3, EPSILON, FLT_MAX);

@@ -23,8 +23,6 @@ int engine_init(Engine* engine, SDL_Window* window, Canvas* canvas) {
         return 1;
     }
 
-    // Set a default background color, can be overridden later
-    engine->background_color = color_new(255.0f, 255.0f, 255.0f); // Black by default
     return 0;
 }
 
@@ -42,7 +40,7 @@ void engine_render(Engine* engine, const Camera* camera, const Scene* scene, con
     }
 
     // Set background color for clearing
-    SDL_SetRenderDrawColor(engine->renderer, engine->background_color.r, engine->background_color.g, engine->background_color.b, 255);
+    SDL_SetRenderDrawColor(engine->renderer, scene->background_color.r, scene->background_color.g, scene->background_color.b, 255);
     SDL_RenderClear(engine->renderer);
 
     // Calculate half dimensions for clearer loop bounds
@@ -56,7 +54,7 @@ void engine_render(Engine* engine, const Camera* camera, const Scene* scene, con
             Vector3 ray_direction = canvas_to_viewport(camera, canvas, pixel_x, pixel_y);
 
             // Trace the ray to find the color of the pixel
-            Color pixel_color = engine_trace_ray(camera, scene, ray_direction, engine->background_color);
+            Color pixel_color = engine_trace_ray(camera, scene, ray_direction);
 
             // Draw the computed color at the pixel location
             engine_draw_pixel(engine, canvas, &pixel_color, pixel_x, pixel_y);
@@ -75,60 +73,40 @@ void engine_render(Engine* engine, const Camera* camera, const Scene* scene, con
  * @param background_color The color to return if no object is hit.
  * @return The computed color of the pixel.
  */
-Color engine_trace_ray(const Camera* camera, const Scene* scene, Vector3 ray_direction, Color background_color) {
+Color engine_trace_ray(const Camera* camera, const Scene* scene, Vector3 ray_direction) {
     if (!camera || !scene) {
         fprintf(stderr, "Error: NULL camera or scene passed to engine_trace_ray.\n");
-        return background_color; // Return background color on error
+        return scene->background_color; // Return background color on error
     }
 
     // Minimum and maximum 't' values for valid intersections
     const float t_min = 0.001f; // Avoid self-intersection issues (epsilon)
     const float t_max = FLT_MAX;
 
-    float closest_t_intersection = FLT_MAX;
-    const Object* hit_object = NULL; // Use const pointer for object that was hit
+    ClosestIntersection closest_intersection = engine_calculate_closest_intersection(scene->objects, camera->position, ray_direction, t_min, t_max);
 
-    // Iterate through all objects in the scene to find the closest intersection
-    for (int i = 0; i < scene->objects->count; ++i) {
-        // Get a pointer to the current object to avoid copying large structs
-        const Object* current_object = &(scene->objects->objects[i]);
-        IntersectionRoots current_roots = render_ray_sphere_intersection(camera->position, ray_direction, *current_object);
-
-        // Check if root1 is a valid intersection and closer than previous
-        if (current_roots.root1 > t_min && current_roots.root1 < t_max && current_roots.root1 < closest_t_intersection) {
-            closest_t_intersection = current_roots.root1;
-            hit_object = current_object;
-        }
-        // Check if root2 is a valid intersection and closer than previous
-        if (current_roots.root2 > t_min && current_roots.root2 < t_max && current_roots.root2 < closest_t_intersection) {
-            closest_t_intersection = current_roots.root2;
-            hit_object = current_object;
-        }
-    }
-
-    // If no object was hit, return the background color
-    if (hit_object == NULL) {
-        return background_color;
+    if (closest_intersection.closest_object == NULL) {
+        return scene->background_color;
     }
 
     // Calculate the exact 3D point where the ray hit the object
-    Vector3 intersection_point = vector3_add(camera->position, vector3_scale(ray_direction, closest_t_intersection));
+    Vector3 intersection_point = vector3_add(camera->position, vector3_scale(ray_direction, closest_intersection.closest_t));
 
     // Calculate the surface normal at the intersection point.
     // For a sphere, the normal is simply (intersection_point - sphere_center) normalized.
-    Vector3 surface_normal =  vector3_normalize(vector3_subtract(intersection_point, hit_object->position));
+    Vector3 surface_normal =  vector3_normalize(vector3_subtract(intersection_point, closest_intersection.closest_object->position));
 
     // The view direction is the inverse of the ray direction from the camera
     Vector3 view_direction = vector3_scale(ray_direction, -1.0f);
 
     // Compute the total light intensity at the intersection point
-    float light_intensity = render_compute_light(scene->lights, intersection_point, surface_normal, hit_object->specular, view_direction);
+    float light_intensity = engine_compute_light(scene, intersection_point, surface_normal, closest_intersection.closest_object->specular, view_direction);
 
     // Return the object's color multiplied by the calculated light intensity
     Color final_color = color_new(
-        (unsigned char)(hit_object->color.r * light_intensity),
-        (unsigned char)(hit_object->color.g * light_intensity),
-        (unsigned char)(hit_object->color.b * light_intensity)
+        (unsigned char)(closest_intersection.closest_object->color.r * light_intensity),
+        (unsigned char)(closest_intersection.closest_object->color.g * light_intensity),
+        (unsigned char)(closest_intersection.closest_object->color.b * light_intensity)
     );
     return final_color;
 }
@@ -142,19 +120,20 @@ Color engine_trace_ray(const Camera* camera, const Scene* scene, Vector3 ray_dir
  * @param view_direction Direction vector from the surface point to the camera.
  * @return The total light intensity.
  */
-float render_compute_light(const LightList* lights_list, Vector3 surface_point, Vector3 surface_normal, int specular_exponent, Vector3 view_direction) {
-    if (!lights_list) {
-        fprintf(stderr, "Error: NULL lights_list passed to render_compute_light.\n");
+float engine_compute_light(const Scene* scene, Vector3 surface_point, Vector3 surface_normal, int specular_exponent, Vector3 view_direction) {
+    if (!scene->lights) {
+        fprintf(stderr, "Error: NULL lights_list passed to engine_compute_light.\n");
         return 0.0f;
     }
 
     float total_intensity = 0.0f;
+    float t_max = 0.0;
 
     // Normalize the view vector once
     Vector3 normalized_view_direction = vector3_normalize(view_direction);
 
-    for (size_t i = 0; i < lights_list->count; ++i) {
-        const Light* current_light = &(lights_list->lights[i]); 
+    for (size_t i = 0; i < scene->lights->count; ++i) {
+        const Light* current_light = &(scene->lights->lights[i]); 
 
         Vector3 light_direction;
 
@@ -164,17 +143,25 @@ float render_compute_light(const LightList* lights_list, Vector3 surface_point, 
                 continue;
             case LIGHT_TYPE_POINT:
                 light_direction = vector3_subtract(current_light->data.pointData.position, surface_point);
+                t_max = 1.0f;
                 break;
             case LIGHT_TYPE_DIRECTIONAL:
                 light_direction = vector3_scale(current_light->data.directionalData.direction, 1.0f);
+                t_max = FLT_MAX;
                 break;
             default:
-                fprintf(stderr, "Warning: Unknown Light Type encountered in render_compute_light.\n");
+                fprintf(stderr, "Warning: Unknown Light Type encountered in engine_compute_light.\n");
                 continue;;
         }
 
         // Normalize light direction
         Vector3 normalized_light_direction = vector3_normalize(light_direction);
+
+        ClosestIntersection closest_intersection = engine_calculate_closest_intersection(scene->objects, surface_point, light_direction, 0.001, t_max);
+
+        if (closest_intersection.closest_object != NULL) {
+            continue;
+        }
 
         // --- DIFFUSE LIGHT (Lambertian Reflection) ---
         // N · L (Normal dot Light direction)
@@ -203,6 +190,28 @@ float render_compute_light(const LightList* lights_list, Vector3 surface_point, 
     return fminf(total_intensity, 1.0f); 
 }
 
+ClosestIntersection engine_calculate_closest_intersection(ObjectList* objects, Vector3 ray_origin, Vector3 ray_direction, float t_min, float t_max) {
+    ClosestIntersection closest_intersection = { NULL, FLT_MAX};
+
+    for (int i = 0; i < objects->count; ++i) {
+        const Object* current_object = &(objects->objects[i]);
+        IntersectionRoots roots = engine_ray_sphere_intersection(ray_origin, ray_direction, *current_object);
+
+        // Check if root1 is a valid intersection and closer than previous
+        if (roots.root1 > t_min && roots.root1 < t_max && roots.root1 < closest_intersection.closest_t) {
+            closest_intersection.closest_t = roots.root1;
+            closest_intersection.closest_object = current_object;
+        }
+        // Check if root2 is a valid intersection and closer than previous
+        if (roots.root2 > t_min && roots.root2 < t_max && roots.root2 < closest_intersection.closest_t) {
+            closest_intersection.closest_t = roots.root2;
+            closest_intersection.closest_object = current_object;
+        }
+    }
+
+    return closest_intersection;
+}
+
 /**
  * @brief Calculates the intersection points of a ray with a sphere.
  * @param ray_origin The origin of the ray.
@@ -211,7 +220,7 @@ float render_compute_light(const LightList* lights_list, Vector3 surface_point, 
  * @return An IntersectionRoots struct containing the two intersection 't' values.
  * If no intersection, roots will be FLT_MAX.
  */
-IntersectionRoots render_ray_sphere_intersection(Vector3 ray_origin, Vector3 ray_direction, const Object sphere_object) {
+IntersectionRoots engine_ray_sphere_intersection(Vector3 ray_origin, Vector3 ray_direction, const Object sphere_object) {
     IntersectionRoots intersection_t_values = {FLT_MAX, FLT_MAX};
 
     // Vector from sphere center to ray origin: L = O - C

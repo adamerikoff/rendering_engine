@@ -47,6 +47,8 @@ int scene_init(Scene* scene) {
     lightList_add(scene->lights, light2);
     lightList_add(scene->lights, light3);
 
+    scene->background_color = color_new(255.0f, 255.0f, 255.0f);
+
     return 0;
 }
 

@@ -34,6 +34,11 @@ typedef struct IntersectionRoots {
     float root2;
 } IntersectionRoots;
 
+typedef struct ClosestIntersection {
+    Object* closest_object;
+    float closest_t;
+} ClosestIntersection;
+
 /**
  * @brief Initializes the rendering engine.
  * @param engine Pointer to the Engine struct to initialize.
@@ -77,7 +82,7 @@ void engine_clean_up(Engine* engine);
  * @param background_color The color to return if no object is hit.
  * @return The computed color of the pixel.
  */
-Color engine_trace_ray(const Camera* camera, const Scene* scene, Vector3 ray_direction, Color background_color);
+Color engine_trace_ray(const Camera* camera, const Scene* scene, Vector3 ray_direction);
 
 /**
  * @brief Computes the total light intensity at a given surface point.
@@ -88,7 +93,7 @@ Color engine_trace_ray(const Camera* camera, const Scene* scene, Vector3 ray_dir
  * @param view_direction Direction vector from the surface point to the camera.
  * @return The total light intensity.
  */
-float render_compute_light(const LightList* lights_list, Vector3 surface_point, Vector3 surface_normal, int specular_exponent, Vector3 view_direction);
+float engine_compute_light(const Scene* scene, Vector3 surface_point, Vector3 surface_normal, int specular_exponent, Vector3 view_direction);
 
 /**
  * @brief Calculates the intersection points of a ray with a sphere.
@@ -98,6 +103,8 @@ float render_compute_light(const LightList* lights_list, Vector3 surface_point, 
  * @return An IntersectionRoots struct containing the two intersection 't' values.
  * If no intersection, roots will be FLT_MAX.
  */
-IntersectionRoots render_ray_sphere_intersection(Vector3 ray_origin, Vector3 ray_direction, const Object sphere_object);
+IntersectionRoots engine_ray_sphere_intersection(Vector3 ray_origin, Vector3 ray_direction, const Object sphere_object);
+
+ClosestIntersection engine_calculate_closest_intersection(ObjectList* objects, Vector3 ray_origin, Vector3 ray_direction, float t_min, float t_max);
 
 #endif // ENGINE_H

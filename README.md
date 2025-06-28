@@ -16,6 +16,14 @@ This project was completed heavily utilizing the concepts and principles laid ou
 ```
 The book served as an invaluable guide for understanding the core algorithms and mathematical concepts behind ray tracing.
 
+## Table of Contents
+* [Features](#features)
+* [Preview](#preview)
+* [How to Build and Run](#how-to-build-and-run)
+* [Usage](#usage)
+* [License](#license)
+
+
 ## Features
   * **Ray Tracing Core:** Implements the fundamental ray tracing algorithm to determine pixel colors based on ray-object intersections.
   * **Sphere Primitives:** Renders spherical objects within the scene.

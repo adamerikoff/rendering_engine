@@ -20,7 +20,8 @@ BIN_DIR = bin
 # --- Rasterizing Engine Configuration ---
 RASTER_SRC_DIR = $(SRC_DIR)/rasterizing_engine
 RASTER_SRCS_SUBDIRS = \
-    $(RASTER_SRC_DIR)/app
+    $(RASTER_SRC_DIR)/app \
+	$(RASTER_SRC_DIR)/geometry
 
 # Collect all .c source files for the rasterizing engine, including those in subdirectories.
 RASTER_C_SRCS = $(wildcard $(RASTER_SRC_DIR)/*.c)

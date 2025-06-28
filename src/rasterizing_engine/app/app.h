@@ -2,10 +2,10 @@
 
 #include <SDL2/SDL.h>
 #include <stdio.h>
+#include <math.h> // Required for roundf, fabs
 
 #include "../colors.h"
-#include "../geometry/geometry.h"
-
+#include "../geometry/geometry.h" // Includes the updated Point2D
 
 #ifndef _APP_H_
 #define _APP_H_
@@ -42,7 +42,14 @@ float* interpolate(float i0, float d0, float i1, float d1, int* out_count);
 // P0 and P1 are in *true geometrical coordinates* (centered, Y-up)
 void draw_line(Application* app, Point2D P0, Point2D P1, unsigned int color);
 
-// Helper function for swapping points
+// Helper function for swapping points (now swaps h too)
 void swap_points(Point2D* p1, Point2D* p2);
 
+// New: Draw a wireframe triangle
+void draw_wireframe_triangle(Application* app, Point2D p0, Point2D p1, Point2D p2, unsigned int color);
+
+// UPDATED: Draw a shaded triangle (replaces draw_filled_triangle)
+void draw_shaded_triangle(Application* app, Point2D p0, Point2D p1, Point2D p2, unsigned int base_color);
+
 #endif
+
